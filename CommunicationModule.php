@@ -107,7 +107,55 @@ class CommunicationModule{
 	 * @param    boolean $network_wide    True if WPMU superadmin uses "Network Activate" action, false if WPMU is disabled or plugin is activated on an individual blog.
 	 */
 	public static function activate($network_wide) {
-		// TODO: Define activation functionality here
+        
+                global $wpdb;
+            
+                //create tables logic on plugin activation
+                $communication_tbl=$wpdb->prefix."ajcm_communications";
+                $communication_sql="CREATE TABLE `{$communication_tbl}` (
+                               `id` int(11) NOT NULL primary key AUTO_INCREMENT,           
+                               `component` varchar(75) NOT NULL,
+                               `communication_type` varchar(75) NOT NULL,
+                               `user_id` int(11) DEFAULT NULL,
+                               `priority` varchar(25) NOT NULL,
+                               `created` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
+                               `processed` datetime NOT NULL DEFAULT '0000-00-00 00:00:00'
+                                );";
+
+                $communication_meta_tbl=$wpdb->prefix."ajcm_communication_meta";            
+                $communication_meta_sql="CREATE TABLE `{$communication_meta_tbl}` (
+                                `id` int(11) NOT NULL primary key AUTO_INCREMENT,
+                                `communication_id` int(11) DEFAULT NULL,
+                                `meta_key` varchar(255) NOT NULL,
+                                `meta_value` longtext
+                                 );";
+
+                $reciepients_tbl=$wpdb->prefix."ajcm_recipients";            
+                $reciepients_sql="CREATE TABLE `{$reciepients_tbl}` (
+                                `id` int(11) NOT NULL primary key AUTO_INCREMENT,
+                                `communication_id` int(11) DEFAULT NULL,
+                                `user_id` int(11) DEFAULT NULL,
+                                `type` varchar(25) NOT NULL,
+                                `value` varchar(25) NOT NULL,
+                                `thirdparty_id` int(11) DEFAULT NULL,
+                                `status` varchar(25) NOT NULL
+                                 );";   
+
+                $email_preferences_tbl=$wpdb->prefix."ajcm_emailpreferences";            
+                $email_preferences_sql="CREATE TABLE `{$email_preferences_tbl}` (
+                                `id` int(11) NOT NULL primary key AUTO_INCREMENT,
+                                `user_id` int(11) DEFAULT NULL,
+                                `communication_type` varchar(255) NOT NULL,
+                                `preference` varchar(25) NOT NULL
+                                 );";   
+
+
+                //reference to upgrade.php file
+                require_once(ABSPATH.'wp-admin/includes/upgrade.php');
+                dbDelta($communication_sql);
+                dbDelta($communication_meta_sql);
+                dbDelta($reciepients_sql);
+                dbDelta($email_preferences_sql);
 	}
 
 	/**
@@ -241,5 +289,125 @@ class CommunicationModule{
 	public function filter_method_name() {
 		// TODO: Define your filter hook callback here
 	}
+        
+        /*
+         * add a communication
+         *    @param array $args {
+         *     An array of arguments.
+         *     @type int|bool $id  Default: false.
+         *     @type string $component 
+         *     @type string $communication_type
+         *     @type int $user_id 
+         *     @type string $priority (high,medium,low)
+         *     @type datetime $created
+         *     @type datetime $processed
+         *     }
+         * @return int|false comm_id on successful add.
+         */
+        public function communication_add ( $args = '' ) {
+            global $wpdb;
+            $defaults = array(
+                    'id'                  => false,
+                    'component'           => '',    
+                    'communication_type'  => '',                  
+                    'user_id'             => '',    
+                    'priority'            => '',
+                    'created'             => current_time( 'mysql', true ),
+                    'processed'           => ''
+            );
+            $params = wp_parse_args( $args, $defaults );
+            extract( $params, EXTR_SKIP );
+            
+            if(!$id){
+                $q = $wpdb->prepare( "INSERT INTO {$wpdb->prefix}ajcm_communications ( component, communication_type, "
+                . "user_id, priority, created, processed) VALUES ( %s, %s, %d, %s, %s, %s)", 
+                        $component, $communication_type, $user_id, $priority, $created, $processed);
+                        if ( false === $wpdb->query( $q ) )
+                            return false;
+                        
+                $comm_id = $wpdb->insert_id;
+                return $comm_id;
+            }
+            
+        }
+        
+         /*
+         * add a communication meta
+         * @param int $comm_id
+         * @param string $meta_key 
+         * @param string $meta_value 
+         * 
+         * @return int|false recipient_id on successful add.
+         */       
+        public function communication_meta_add ( $comm_id, $meta_key ,$meta_value ) {
+            global $wpdb;
+            
+            if (!$meta_key )
+                return false;
+            
+            if ( !$comm_id = absint($comm_id) )
+                return false;
+            
+            	$meta_key = wp_unslash($meta_key);
+                $meta_value = wp_unslash($meta_value);
+                
+                $meta_value = maybe_serialize( $meta_value );
+                
+                $table = $wpdb->prefix."ajcm_communication_meta";
+                $result = $wpdb->insert( $table, array(
+                                            'communication_id' => $comm_id,
+                                            'meta_key' => $meta_key,
+                                            'meta_value' => $meta_value
+                                        ) );
+
+                if ( ! $result )
+                    return false;
+
+                $mid = (int) $wpdb->insert_id;
+                return $mid;
+        }
+ 
+         /*
+         * add a communication recipient
+         * @param int $comm_id
+         * @param array $args {
+         *     An array of arguments.
+         *     @type int|bool $user_id.
+         *     @type string $type (email|phone) 
+         *     @type string $value values of $type
+         *     @type int $thirdparty_id 
+         *     @type string $status
+         *     }
+         * @return int|false recipient_id on successful add.
+         */       
+        public function recipient_add ( $comm_id ,$args = '' ) {
+            global $wpdb;
+            
+              if ( !$comm_id = absint($comm_id) )
+                return false;
+              
+            $defaults = array(
+                    'id'                  => false,
+                    'user_id'             => '',    
+                    'type'                => '',                  
+                    'value'               => '',    
+                    'thirdparty_id'       => '',
+                    'status'              => ''
+            );
+            
+            $params = wp_parse_args( $args, $defaults );
+            extract( $params, EXTR_SKIP );
+            
+            if(!$id){
+                $q = $wpdb->prepare( "INSERT INTO {$wpdb->prefix}ajcm_recipients ( communication_id, user_id, "
+                . "type, value, thirdparty_id, status) VALUES ( %d, %d, %s, %s, %d, %s)", 
+                        $comm_id, $user_id, $type, $value, $thirdparty_id, $status);
+                        if ( false === $wpdb->query( $q ) )
+                            return false;
+                        
+                $comm_id = $wpdb->insert_id;
+                return $recipient_id;
+            }            
+        }
 
 }
