@@ -65,6 +65,9 @@ class CommunicationModule{
 		// Load plugin text domain
 		add_action("init", array($this, "load_plugin_textdomain"));
 
+		// add plugin tables to $wpdb inorder to access tables in format ie $wpdb->tablename
+		add_action("after_setup_theme", array($this, "add_plugin_tables_to_wpdb"));
+                
 		// Add the options page and menu item.
 		add_action("admin_menu", array($this, "add_plugin_admin_menu"));
 
@@ -79,6 +82,9 @@ class CommunicationModule{
 		// Define custom functionality. Read more about actions and filters: http://codex.wordpress.org/Plugin_API#Hooks.2C_Actions_and_Filters
 		add_action("TODO", array($this, "action_method_name"));
 		add_filter("TODO", array($this, "filter_method_name"));
+                
+                // hook to add a communication record on forgot password
+                add_action("retrieve_password_key", array($this, "add_forgot_password_communication"),10,2);
 
 	}
 
@@ -116,7 +122,7 @@ class CommunicationModule{
                                `id` int(11) NOT NULL primary key AUTO_INCREMENT,           
                                `component` varchar(75) NOT NULL,
                                `communication_type` varchar(75) NOT NULL,
-                               `user_id` int(11) DEFAULT NULL,
+                               `user_id` int(11) DEFAULT '0',
                                `priority` varchar(25) NOT NULL,
                                `created` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
                                `processed` datetime NOT NULL DEFAULT '0000-00-00 00:00:00'
@@ -134,23 +140,24 @@ class CommunicationModule{
                 $reciepients_sql="CREATE TABLE `{$reciepients_tbl}` (
                                 `id` int(11) NOT NULL primary key AUTO_INCREMENT,
                                 `communication_id` int(11) DEFAULT NULL,
-                                `user_id` int(11) DEFAULT NULL,
+                                `user_id` int(11) DEFAULT '0',
                                 `type` varchar(25) NOT NULL,
                                 `value` varchar(25) NOT NULL,
-                                `thirdparty_id` int(11) DEFAULT NULL,
+                                `thirdparty_id` int(11) DEFAULT '0',
                                 `status` varchar(25) NOT NULL
                                  );";   
 
                 $email_preferences_tbl=$wpdb->prefix."ajcm_emailpreferences";            
                 $email_preferences_sql="CREATE TABLE `{$email_preferences_tbl}` (
                                 `id` int(11) NOT NULL primary key AUTO_INCREMENT,
-                                `user_id` int(11) DEFAULT NULL,
+                                `user_id` int(11) DEFAULT '0',
                                 `communication_type` varchar(255) NOT NULL,
                                 `preference` varchar(25) NOT NULL
                                  );";   
 
 
                 //reference to upgrade.php file
+                //uses WP dbDelta function inorder to handle addition of new table columns 
                 require_once(ABSPATH.'wp-admin/includes/upgrade.php');
                 dbDelta($communication_sql);
                 dbDelta($communication_meta_sql);
@@ -305,12 +312,13 @@ class CommunicationModule{
          * @return int|false comm_id on successful add.
          */
         public function communication_add ( $args = '' ) {
-            global $wpdb;
+            global $wpdb,$ajcm_components;
+            
             $defaults = array(
                     'id'                  => false,
                     'component'           => '',    
                     'communication_type'  => '',                  
-                    'user_id'             => '',    
+                    'user_id'             => 0,    
                     'priority'            => '',
                     'created'             => current_time( 'mysql', true ),
                     'processed'           => ''
@@ -318,15 +326,25 @@ class CommunicationModule{
             $params = wp_parse_args( $args, $defaults );
             extract( $params, EXTR_SKIP );
             
+            // add a new communication record when $id is false.
             if(!$id){
-                $q = $wpdb->prepare( "INSERT INTO {$wpdb->prefix}ajcm_communications ( component, communication_type, "
-                . "user_id, priority, created, processed) VALUES ( %s, %s, %d, %s, %s, %s)", 
-                        $component, $communication_type, $user_id, $priority, $created, $processed);
-                        if ( false === $wpdb->query( $q ) )
-                            return false;
+                $q = $wpdb->insert( $wpdb->ajcm_communications, array(
+                                                                    'component' => $component,
+                                                                    'communication_type' => $communication_type,
+                                                                    'user_id'           => $user_id,
+                                                                    'priority'          =>$priority,
+                                                                    'created'           =>$created,
+                                                                    'processed'         =>$processed
+                                                                     ));
+
+                        if ( false === $q )
+                            return new WP_Error('communication_insert_failed', __('Insert Communication Failed.') );
                         
                 $comm_id = $wpdb->insert_id;
                 return $comm_id;
+            }else{
+                // TODO Handle communication record update if $id passed
+                return false;
             }
             
         }
@@ -342,10 +360,10 @@ class CommunicationModule{
         public function communication_meta_add ( $comm_id, $meta_key ,$meta_value ) {
             global $wpdb;
             
-            if (!$meta_key )
+            if (!$meta_key )                          // if no meta_key passed to add return false.
                 return false;
             
-            if ( !$comm_id = absint($comm_id) )
+            if ( !$comm_id = absint($comm_id) )       // if no comm_id passed to add return false.
                 return false;
             
             	$meta_key = wp_unslash($meta_key);
@@ -353,17 +371,16 @@ class CommunicationModule{
                 
                 $meta_value = maybe_serialize( $meta_value );
                 
-                $table = $wpdb->prefix."ajcm_communication_meta";
-                $result = $wpdb->insert( $table, array(
+                $result = $wpdb->insert( $wpdb->ajcm_communication_meta, array(
                                             'communication_id' => $comm_id,
                                             'meta_key' => $meta_key,
                                             'meta_value' => $meta_value
                                         ) );
 
                 if ( ! $result )
-                    return false;
+                    return new WP_Error('communication_meta_add_failed', __('Add Communication meta Failed.') );
 
-                $mid = (int) $wpdb->insert_id;
+                $mid = $wpdb->insert_id;   //the inserted communication meta id
                 return $mid;
         }
  
@@ -372,7 +389,7 @@ class CommunicationModule{
          * @param int $comm_id
          * @param array $args {
          *     An array of arguments.
-         *     @type int|bool $user_id.
+         *     @type int $user_id.
          *     @type string $type (email|phone) 
          *     @type string $value values of $type
          *     @type int $thirdparty_id 
@@ -388,26 +405,94 @@ class CommunicationModule{
               
             $defaults = array(
                     'id'                  => false,
-                    'user_id'             => '',    
+                    'user_id'             => 0,    
                     'type'                => '',                  
                     'value'               => '',    
-                    'thirdparty_id'       => '',
+                    'thirdparty_id'       => 0,
                     'status'              => ''
             );
             
             $params = wp_parse_args( $args, $defaults );
             extract( $params, EXTR_SKIP );
             
+            // add a new recipient record if $id is false.
             if(!$id){
-                $q = $wpdb->prepare( "INSERT INTO {$wpdb->prefix}ajcm_recipients ( communication_id, user_id, "
-                . "type, value, thirdparty_id, status) VALUES ( %d, %d, %s, %s, %d, %s)", 
-                        $comm_id, $user_id, $type, $value, $thirdparty_id, $status);
-                        if ( false === $wpdb->query( $q ) )
-                            return false;
+                $q = $wpdb->insert( $wpdb->ajcm_recipients, array(
+                                            'communication_id'=>$comm_id,
+                                            'user_id' =>$user_id,
+                                            'type' => $type,
+                                            'value' => $value,
+                                            'thirdparty_id' => $thirdparty_id,
+                                            'status' => $status
+                                            ));
+                        if ( false === $q )
+                            return new WP_Error('recipients_add_failed', __('Add Recipients Failed.') );
                         
-                $comm_id = $wpdb->insert_id;
+                $recipient_id = $wpdb->insert_id; //the inserted recipient id
                 return $recipient_id;
+            }else{
+                // TODO Handle recipient update if $id is passed
+                return false;
             }            
+        }
+        
+        /*
+         * function to add plugin table names to global $wpdb
+         */
+        public function add_plugin_tables_to_wpdb(){
+            global $wpdb;
+            
+            if (!isset($wpdb->ajcm_communications)) {
+                $wpdb->ajcm_communications = $wpdb->prefix . 'ajcm_communications';
+            }
+            if (!isset($wpdb->ajcm_communication_meta)) {
+                $wpdb->ajcm_communication_meta = $wpdb->prefix . 'ajcm_communication_meta';
+            }    
+            if (!isset($wpdb->ajcm_recipients)) {
+                $wpdb->ajcm_recipients = $wpdb->prefix . 'ajcm_recipients';
+            }
+            if (!isset($wpdb->ajcm_emailpreferences)) {
+                $wpdb->ajcm_emailpreferences = $wpdb->prefix . 'ajcm_emailpreferences';
+            }
+            
+        }
+        
+        /*
+         * function to add communication record on forgot password
+         * @param string $user_login
+         * @param string $key password reset key
+         * 
+         * @return bool|WP_Error True: when finish. WP_Error on error
+         */
+        public function add_forgot_password_communication($user_login,$key){
+            $data = array(
+                          'component'   => 'users',
+                          'communication_type' => 'forgot_password',
+                          'priority'           => 'high',
+                          );
+            $comm_id = $this->communication_add($data);
+            
+            // if communication id is added add communication meta and recipients
+            if($comm_id && !is_wp_error($comm_id)){
+                $this->communication_meta_add($comm_id, 'reset_key', $key);  //add reset key to communication meta
+
+                $recipient_user = get_user_by( 'login', $user_login );
+                $recipient_data = array(
+                                'user_id'             => $recipient_user->ID,    
+                                'type'                => 'email',                  
+                                'value'               => $recipient_user->user_email, 
+                                'status'              =>'queued'
+                                    );
+                $recipient_added = $this->recipient_add($comm_id,$recipient_data);  //add recipient to communication recipients
+                if($recipient_added && !is_wp_error($recipient_added))
+                        return true;
+                else{
+                        return $recipient_added;
+                }
+            }else{
+                return $comm_id;
+            }       
+            
         }
 
 }
