@@ -34,4 +34,12 @@ require_once(plugin_dir_path(__FILE__) . "CommunicationModule.php");
 register_activation_hook(__FILE__, array("CommunicationModule", "activate"));
 register_deactivation_hook(__FILE__, array("CommunicationModule", "deactivate"));
 
-CommunicationModule::get_instance();
+//$aj_comm = CommunicationModule::get_instance();
+
+function aj_communication() {
+	return CommunicationModule::get_instance();
+}
+
+// add the communication module instance to globals
+$GLOBALS['aj_comm'] = aj_communication();
+
