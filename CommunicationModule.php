@@ -308,8 +308,9 @@ class CommunicationModule{
          *     @type string $priority (high,medium,low)
          *     @type datetime $created
          *     @type datetime $processed
+         *     @type array $meta
          *     }
-         * @return int|false comm_id on successful add.
+         * @return int|false|WP_Error comm_id on successful add. WP_Error on insert error.
          */
         public function communication_add ( $args = '' ) {
             global $wpdb,$ajcm_components;
@@ -321,7 +322,8 @@ class CommunicationModule{
                     'user_id'             => 0,    
                     'priority'            => '',
                     'created'             => current_time( 'mysql', true ),
-                    'processed'           => ''
+                    'processed'           => '',
+                    'meta'                => array()
             );
             $params = wp_parse_args( $args, $defaults );
             extract( $params, EXTR_SKIP );
@@ -341,6 +343,12 @@ class CommunicationModule{
                             return new WP_Error('communication_insert_failed', __('Insert Communication Failed.') );
                         
                 $comm_id = $wpdb->insert_id;
+                
+                    // loop through the meta data to be added for the communication and add meta data
+                    foreach ($meta as $key => $value){
+                        $this->communication_meta_add($comm_id, $key, $value);
+                    }
+                    
                 return $comm_id;
             }else{
                 // TODO Handle communication record update if $id passed
@@ -355,7 +363,7 @@ class CommunicationModule{
          * @param string $meta_key 
          * @param string $meta_value 
          * 
-         * @return int|false recipient_id on successful add.
+         * @return int|false|WP_Error recipient_id on successful add. false on invalid data. WP_Error on insert error.
          */       
         public function communication_meta_add ( $comm_id, $meta_key ,$meta_value ) {
             global $wpdb;
@@ -462,19 +470,28 @@ class CommunicationModule{
          * @param string $user_login
          * @param string $key password reset key
          * 
-         * @return bool|WP_Error True: when finish. WP_Error on error
+         * @return bool|WP_Error True: when finish. False: when communication component not registered .WP_Error on error
          */
         public function add_forgot_password_communication($user_login,$key){
+
+            // check if forgot_password is part of registered communication components
+            if(! $this->is_registered_component_type('users','forgot_password')){
+                return false;
+            }
+            
+            //build the communication meta array
+            $meta = array('reset_key' => $key);
+            
             $data = array(
                           'component'   => 'users',
                           'communication_type' => 'forgot_password',
                           'priority'           => 'high',
+                          'meta'               => $meta
                           );
             $comm_id = $this->communication_add($data);
             
-            // if communication id is added add communication meta and recipients
+            // if communication id is added add communication recipients
             if($comm_id && !is_wp_error($comm_id)){
-                $this->communication_meta_add($comm_id, 'reset_key', $key);  //add reset key to communication meta
 
                 $recipient_user = get_user_by( 'login', $user_login );
                 $recipient_data = array(
@@ -493,6 +510,25 @@ class CommunicationModule{
                 return $comm_id;
             }       
             
+        }
+        
+        /*
+         * Check if a component and component type is registered in theme code
+         * @param string $component
+         * @param string $type
+         * 
+         * return bool true if component and type is registerd in theme code 
+         */
+        public function is_registered_component_type($component,$type){
+            global $ajcm_components;
+
+            if(!array_key_exists($component, $ajcm_components))
+                    return false;
+ 
+            if(is_array($ajcm_components[$component]) && !in_array($type, $ajcm_components[$component]))
+                    return false;
+            
+            return true;
         }
 
 }
