@@ -143,7 +143,7 @@ class CommunicationModule{
                                 `user_id` int(11) DEFAULT '0',
                                 `type` varchar(25) NOT NULL,
                                 `value` varchar(25) NOT NULL,
-                                `thirdparty_id` int(11) DEFAULT '0',
+                                `thirdparty_id` varchar(50) DEFAULT '',
                                 `status` varchar(25) NOT NULL
                                  );";   
 
@@ -312,7 +312,7 @@ class CommunicationModule{
          *     }
          * @return int|false|WP_Error comm_id on successful add. WP_Error on insert error.
          */
-        public function communication_add ( $args = '' ) {
+        public function communication_add ( $args = '' ,$meta = array()) {
             global $wpdb,$ajcm_components;
             
             $defaults = array(
@@ -322,8 +322,7 @@ class CommunicationModule{
                     'user_id'             => 0,    
                     'priority'            => '',
                     'created'             => current_time( 'mysql', true ),
-                    'processed'           => '',
-                    'meta'                => array()
+                    'processed'           => ''
             );
             $params = wp_parse_args( $args, $defaults );
             extract( $params, EXTR_SKIP );
@@ -351,7 +350,7 @@ class CommunicationModule{
                     
                 return $comm_id;
             }else{
-                // TODO Handle communication record update if $id passed
+                // TODO Handle communication record update if $id passed           
                 return false;
             }
             
@@ -403,7 +402,7 @@ class CommunicationModule{
          *     @type int $thirdparty_id 
          *     @type string $status
          *     }
-         * @return int|false recipient_id on successful add.
+         * @return int|bool|WP_Error recipient_id on successful add. false on invalid data. true on update .WP_Error on insert/update error
          */       
         public function recipient_add ( $comm_id ,$args = '' ) {
             global $wpdb;
@@ -416,7 +415,7 @@ class CommunicationModule{
                     'user_id'             => 0,    
                     'type'                => '',                  
                     'value'               => '',    
-                    'thirdparty_id'       => 0,
+                    'thirdparty_id'       => '',
                     'status'              => ''
             );
             
@@ -434,13 +433,17 @@ class CommunicationModule{
                                             'status' => $status
                                             ));
                         if ( false === $q )
-                            return new WP_Error('recipients_add_failed', __('Add Recipients Failed.') );
+                            return new WP_Error('recipient_add_failed', __('Add Recipient Failed.') );
                         
                 $recipient_id = $wpdb->insert_id; //the inserted recipient id
                 return $recipient_id;
             }else{
-                // TODO Handle recipient update if $id is passed
-                return false;
+                
+                $q = $wpdb->update($wpdb->ajcm_recipients,array('thirdparty_id'=>$thirdparty_id,'status'=>$status),
+                                            array('id'=>$id));
+                         if ( false === $q )
+                            return new WP_Error('recipient_update_failed', __('Update Recipient Failed.') );
+                return true;         
             }            
         }
         
@@ -485,10 +488,9 @@ class CommunicationModule{
             $data = array(
                           'component'   => 'users',
                           'communication_type' => 'forgot_password',
-                          'priority'           => 'high',
-                          'meta'               => $meta
+                          'priority'           => 'high'
                           );
-            $comm_id = $this->communication_add($data);
+            $comm_id = $this->communication_add($data,$meta);
             
             // if communication id is added add communication recipients
             if($comm_id && !is_wp_error($comm_id)){
@@ -501,8 +503,10 @@ class CommunicationModule{
                                 'status'              =>'queued'
                                     );
                 $recipient_added = $this->recipient_add($comm_id,$recipient_data);  //add recipient to communication recipients
-                if($recipient_added && !is_wp_error($recipient_added))
+                if($recipient_added && !is_wp_error($recipient_added)){
+                        $this->process_communication_queue();
                         return true;
+                }
                 else{
                         return $recipient_added;
                 }
@@ -530,5 +534,199 @@ class CommunicationModule{
             
             return true;
         }
+        
+        /*
+         * function to get communication meta data
+         * @param int $comm_id 
+         * @param string $meta_key
+         * 
+         * @return string|array $meta_value
+         */
+        public function get_communication_meta($comm_id,$meta_key){
+            global $wpdb;
 
+            $comm_meta_table_query = $wpdb->prepare(
+                "SELECT meta_value FROM $wpdb->ajcm_communication_meta
+                        WHERE communication_id = %d AND meta_key=%s",
+                array($comm_id, $meta_key)
+            );
+
+            $meta_value=$wpdb->get_var($comm_meta_table_query);
+
+            $meta_value = maybe_unserialize($meta_value);
+
+            return $meta_value;
+        }
+        
+        /*
+         * function to process the communication records 
+         */
+        public function process_communication_queue(){
+            global $wpdb;
+           
+           // get all the communications which are needed to be processed 
+           $pending_comms_query = $wpdb->prepare(
+                                "SELECT * FROM $wpdb->ajcm_communications
+                                    WHERE processed=%s",
+                                '0000-00-00 00:00:00'
+                                );
+           
+           $pending_comms=$wpdb->get_results($pending_comms_query);
+           
+           // loop through the pending communications and call process communication function
+           foreach ($pending_comms as $comm){
+               $comm_data = array(
+                                 'id' => $comm->id,
+                                 'component' => $comm->component,
+                                 'communication_type' => $comm->communication_type
+                                  );
+               $this->procces_communication($comm_data);
+           }
+           
+        }
+ 
+        /*
+         * function to process a communication 
+         * @param array $comm_data data about the communication to be processed (id,component,communication_type)
+         */
+        public function procces_communication($comm_data){
+            global $wpdb;
+            
+            //get all the queued recipients of a communication
+            $queued_recipients = $wpdb->prepare(
+                                    "SELECT * FROM $wpdb->ajcm_recipients
+                                        WHERE communication_id=%d AND status=%s",
+                                    $comm_data['id'],'queued'
+                                  );
+            
+            $queued_recipients_result = $wpdb->get_results($queued_recipients);
+            
+            // loop through recipients to send email/sms
+            foreach ($queued_recipients_result as $recipient){
+
+                if($recipient->type == 'email'){
+                    $template_data = $this->get_template_details($recipient,$comm_data);
+                    //recipient communication type email 
+                    $this->send_recipient_email($recipient,$comm_data,'mandrill',$template_data);
+                }
+                else if($recipient->type == 'sms'){
+                    //recipient communication type sms
+                    $this->send_recipient_sms($recipient,$comm_data);
+                }
+            }
+        }
+        
+        
+        /*
+         * function to send email to the recipient using mail sending api 
+         * @param array $recipient recipient data
+         * @param array $comm_data communication record data
+         * @param string $mail_api 
+         * @param array  $template_data
+         */
+        public function send_recipient_email($recipient,$comm_data,$mail_api = 'mandrill',$template_data){
+            
+            // switch case as to select the mail sending api
+            switch ($mail_api) {
+                case "mandrill":
+                    //create a an instance of Mandrill and pass the api key
+                    //TODO get the Mandrill api key from the plugin options
+                    $mandrill = new Mandrill('oX942jRxVF8KiojaV6SfXA');
+                    $url = '/messages/send-template';    //the mandrill api url to call to send email
+                    
+                    /* $to an array of recipient information. 
+                       keys are follows
+                       email* : the email address of the recipient
+                       name:the optional display name to use for the recipient 
+                       type:the header type to use for the recipient, defaults to "to" if not provided oneof(to, cc, bcc) 
+                     */
+                    $to = array();  
+                    $to[] = array('email' => $recipient->value,'name' => '','type'=>'to'); 
+                    
+                    /*
+                     * $template_content an array of dynamic content pairs replacement in template
+                     */
+                    $template_content = $template_data['dynamic_content'];
+                    
+
+                    $params = array(
+                                    'template_name' =>  $template_data['name'],
+                                    'template_content' => $template_content,
+                                    'async' => false,
+                                    'message' => array(
+                                                    'subject' => $template_data['subject'],
+                                                    'from_email' => 'testuser@example.com',
+                                                    'from_name' => 'testsite',
+                                                    'to' => $to
+                                                 )
+                                    );
+
+                    //var_dump($mandrill->call($url,$params));exit;
+                    $response  =  $mandrill->call($url,$params);
+                    
+                    // if api call gives response in multidimensional array format then process it else its an error
+                    if(isMultiArray($response)){
+                        $args = array(
+                                    'id'                  => $recipient->id,
+                                    'thirdparty_id'       => $response[0]['_id'],
+                                    'status'              => $response[0]['status']
+                                );
+                        $this->recipient_add($recipient->communication_id,$args);
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+        
+        public function send_recipient_sms($recipient,$comm_data){
+           //TODO function to send sms to recipient 
+        }
+
+        /*
+         * function to get template info for particular communication_type
+         * @param array $recipient recipient data
+         * @param $comm_data data about the communication to be processed (id,component,communication_type)
+         */
+        public function get_template_details($recipient,$comm_data){
+            
+            $communication_type = $comm_data['communication_type'];
+            $template_data = array();
+            switch($communication_type){
+                case "forgot_password":
+                    $template_data['name'] = 'Forgot Password';
+                    $homeurl = network_home_url( '/' );
+                    $recipient_user = get_user_by( 'id', $recipient->user_id );
+                    $userlogin = $recipient_user->user_login;
+                    $key = $this->get_communication_meta($comm_data['id'],'reset_key');
+                    $reseturl = network_site_url("wp-login.php?action=rp&key=$key&login=" . rawurlencode($userlogin), 'login');
+                    $template_data['dynamic_content'] = array();
+                    $template_data['dynamic_content'][] = array('name' =>'homeurl','content' =>$homeurl);
+                    $template_data['dynamic_content'][] = array('name' =>'userlogin','content' =>$userlogin);
+                    $template_data['dynamic_content'][] = array('name' =>'reseturl','content' => $reseturl);
+                    
+                        // The blogname option is escaped with esc_html on the way into the database in sanitize_option
+                        // we want to reverse this for the plain text arena of emails.
+                        $blogname = wp_specialchars_decode(get_option('blogname'), ENT_QUOTES);
+
+                        $title = sprintf( __('[%s] Password Reset'), $blogname );
+
+
+                        $title = apply_filters( 'retrieve_password_title', $title );
+                        $template_data['subject'] = $title;
+                    break;
+                default:
+                    break;
+            }
+
+            return $template_data;
+        }
+        
+        /*
+         * function to mark a communication processed
+         * @param int communiction id
+         */
+        public function mark_communication_processed($comm_id){
+            //TODO mark communication processed if no queued recipients
+        }
 }

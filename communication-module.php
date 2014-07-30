@@ -30,6 +30,9 @@ if (!defined("WPINC")) {
 
 require_once(plugin_dir_path(__FILE__) . "CommunicationModule.php");
 
+// include the Mandrill API class file to send emails through Mandrill
+require_once( plugin_dir_path( __FILE__ ) . '/src/Mandrill.php');
+
 // Register hooks that are fired when the plugin is activated, deactivated, and uninstalled, respectively.
 register_activation_hook(__FILE__, array("CommunicationModule", "activate"));
 register_deactivation_hook(__FILE__, array("CommunicationModule", "deactivate"));
@@ -43,3 +46,7 @@ function aj_communication() {
 // add the communication module instance to globals
 $GLOBALS['aj_comm'] = aj_communication();
 
+function isMultiArray($a){
+    foreach($a as $v) if(is_array($v)) return TRUE;
+    return FALSE;
+}
