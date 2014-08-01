@@ -598,6 +598,8 @@ class CommunicationModule{
          */
         public function procces_communication($comm_data){
             global $wpdb;
+            // group recipients based on communication type email/sms
+            $recipients_email = $recipients_sms = array();
             
             //get all the lined up recipients of a communication
             $queued_recipients = $wpdb->prepare(
@@ -612,26 +614,35 @@ class CommunicationModule{
             foreach ($queued_recipients_result as $recipient){
 
                 if($recipient->type == 'email'){
-                    $template_data = $this->get_template_details($recipient,$comm_data);
                     //recipient communication type email 
-                    $this->send_recipient_email($recipient,$comm_data,'mandrill',$template_data);
+                    $recipients_email[] = $recipient;
                 }
                 else if($recipient->type == 'sms'){
                     //recipient communication type sms
-                    $this->send_recipient_sms($recipient,$comm_data);
+                    $recipients_sms[] = $recipient;
                 }
             }
+            
+            if(!empty($recipients_email)){
+                $template_data = $this->get_template_details($recipients_email,$comm_data);
+                $this->send_recipient_email($recipients_email,$comm_data,'mandrill',$template_data);
+            }
+            
+            if(!empty($recipients_sms)){
+                 $this->send_recipient_sms($recipients_sms,$comm_data);
+            }
+            
         }
         
         
         /*
          * function to send email to the recipient using mail sending api 
-         * @param array $recipient recipient data
+         * @param array $recipients_email a multidemensional array of recipient data
          * @param array $comm_data communication record data
          * @param string $mail_api 
          * @param array  $template_data
          */
-        public function send_recipient_email($recipient,$comm_data,$mail_api = 'mandrill',$template_data){
+        public function send_recipient_email($recipients_email,$comm_data,$mail_api = 'mandrill',$template_data){
             
             // switch case as to select the mail sending api
             switch ($mail_api) {
@@ -640,50 +651,56 @@ class CommunicationModule{
                     $ajcm_plugin_options = get_option('ajcm_plugin_options'); // get the plugin options
                     
                     if(isset($ajcm_plugin_options['ajcm_mandrill_key']) && $ajcm_plugin_options['ajcm_mandrill_key'] != ''){
-                    //create a an instance of Mandrill and pass the api key
-                    $mandrill = new Mandrill($ajcm_plugin_options['ajcm_mandrill_key']);
-                    $url = '/messages/send-template';    //the mandrill api url to call to send email
+                        //create a an instance of Mandrill and pass the api key
+                        $mandrill = new Mandrill($ajcm_plugin_options['ajcm_mandrill_key']);
+                        $url = '/messages/send-template';    //the mandrill api url to call to send email
+
+                        /* $to an array of recipient information. 
+                           keys are follows
+                           email* : the email address of the recipient
+                           name:the optional display name to use for the recipient 
+                           type:the header type to use for the recipient, defaults to "to" if not provided oneof(to, cc, bcc) 
+                         */
+                        $to = array();  
+                        $recipients_dbupdate_struct = array();
+                        foreach($recipients_email as $recipient){ 
+                            $to[] = array('email' => $recipient->value,'name' => '','type'=>'to'); 
+                            $recipients_dbupdate_struct[$recipient->value] = $recipient->id;
+                        }
                     
-                    /* $to an array of recipient information. 
-                       keys are follows
-                       email* : the email address of the recipient
-                       name:the optional display name to use for the recipient 
-                       type:the header type to use for the recipient, defaults to "to" if not provided oneof(to, cc, bcc) 
-                     */
-                    $to = array();  
-                    $to[] = array('email' => $recipient->value,'name' => '','type'=>'to'); 
-                    
-                    /*
-                     * $template_content an array of dynamic content pairs replacement in template
-                     */
-                    $template_content = $template_data['dynamic_content'];
+                        /*
+                         * $template_content an array of dynamic content pairs replacement in template
+                         */
+                        $template_content = $template_data['dynamic_content'];
 
 
-                    $params = array(
-                                    'template_name' =>  $template_data['name'],    // the name of template on the mandrill account               
-                                    'template_content' => $template_content,       // the editable content areas to be replaced in the template
-                                    'message' => array(
-                                                    'subject' => $template_data['subject'],
-                                                    'from_email' => 'testuser@example.com',
-                                                    'from_name' => 'testsite',
-                                                    'to' => $to,
-                                                    'metadata' => array('communication_type' => 'forgot_password'),
-                                                    'global_merge_vars' =>  $template_data['global_merge_vars']    
-                                                 )
+                        $params = array(
+                                        'template_name' =>  $template_data['name'],    // the name of template on the mandrill account               
+                                        'template_content' => $template_content,       // the editable content areas to be replaced in the template
+                                        'message' => array(
+                                                        'subject' => $template_data['subject'],
+                                                        'from_email' => 'testuser@example.com',
+                                                        'from_name' => 'testsite',
+                                                        'to' => $to,
+                                                        'metadata' => array('communication_type' => 'forgot_password'),
+                                                        'global_merge_vars' =>  $template_data['global_merge_vars']    
+                                                     )
+                                        );
+
+                        //var_dump($mandrill->call($url,$params));exit;
+                        $response  =  $mandrill->call($url,$params);
+                    
+                        // if api call gives response in multidimensional array format then process it else its an error
+                        if(isMultiArray($response)){
+                            foreach ($response as $recipient_response){
+                                    $args = array(
+                                        'id'                  => $recipients_dbupdate_struct[$recipient_response['email']],
+                                        'thirdparty_id'       => $recipient_response['_id'],
+                                        'status'              => $recipient_response['status']
                                     );
-
-                    //var_dump($mandrill->call($url,$params));exit;
-                    $response  =  $mandrill->call($url,$params);
-                    
-                    // if api call gives response in multidimensional array format then process it else its an error
-                    if(isMultiArray($response)){
-                        $args = array(
-                                    'id'                  => $recipient->id,
-                                    'thirdparty_id'       => $response[0]['_id'],
-                                    'status'              => $response[0]['status']
-                                );
-                        $this->recipient_add($recipient->communication_id,$args);
-                    }
+                            $this->recipient_add($recipient->communication_id,$args); 
+                            }
+                        }
                     
                     }
                     break;
@@ -698,10 +715,10 @@ class CommunicationModule{
 
         /*
          * function to get template info for particular communication_type
-         * @param array $recipient recipient data
+         * @param array $recipients_email a multidemensional array of recipient data
          * @param $comm_data data about the communication to be processed (id,component,communication_type)
          */
-        public function get_template_details($recipient,$comm_data){
+        public function get_template_details($recipients_email,$comm_data){
             
             $communication_type = $comm_data['communication_type'];
             $template_data = array();
@@ -709,6 +726,7 @@ class CommunicationModule{
                 case "forgot_password":
                     $template_data['name'] = 'forgot-password'; // [slug] name or slug of a template that exists in the user's account
                     $homeurl = network_home_url( '/' );
+                    $recipient = $recipients_email[0];
                     $recipient_user = get_user_by( 'id', $recipient->user_id );
                     $userlogin = $recipient_user->user_login;
                     $key = $this->get_communication_meta($comm_data['id'],'reset_key');
