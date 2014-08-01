@@ -504,6 +504,7 @@ class CommunicationModule{
                                     );
                 $recipient_added = $this->recipient_add($comm_id,$recipient_data);  //add recipient to communication recipients
                 if($recipient_added && !is_wp_error($recipient_added)){
+                        // call to process communication queue (temporary added to invoke process communication)
                         $this->process_communication_queue();
                         return true;
                 }
@@ -580,7 +581,13 @@ class CommunicationModule{
                                  'component' => $comm->component,
                                  'communication_type' => $comm->communication_type
                                   );
+            
                $this->procces_communication($comm_data);
+               
+               //if communication does not have queued recipients update communication processed date
+               if(! $this->has_recipients_queued($comm->id)){
+               $this->mark_communication_processed($comm->id);
+               }
            }
            
         }
@@ -647,17 +654,18 @@ class CommunicationModule{
                      * $template_content an array of dynamic content pairs replacement in template
                      */
                     $template_content = $template_data['dynamic_content'];
-                    
+
 
                     $params = array(
-                                    'template_name' =>  $template_data['name'],
-                                    'template_content' => $template_content,
-                                    'async' => false,
+                                    'template_name' =>  $template_data['name'],    // the name of template on the mandrill account               
+                                    'template_content' => $template_content,       // the editable content areas to be replaced in the template
+                                    'async' => true,                             // default value is false if recipieints more than 10 then async true
                                     'message' => array(
                                                     'subject' => $template_data['subject'],
                                                     'from_email' => 'testuser@example.com',
                                                     'from_name' => 'testsite',
-                                                    'to' => $to
+                                                    'to' => $to,
+                                                    'metadata' => array('communication_type' => 'forgot_password')
                                                  )
                                     );
 
@@ -727,6 +735,34 @@ class CommunicationModule{
          * @param int communiction id
          */
         public function mark_communication_processed($comm_id){
-            //TODO mark communication processed if no queued recipients
+            global $wpdb;
+            
+            // update the proccessed field to mark the communication processed
+            $q = $wpdb->update($wpdb->ajcm_communications,array('processed'=>current_time( 'mysql', true )),
+                                            array('id'=>$comm_id));
+        }
+        
+        /*
+         * function to check if communication has recipients queued
+         * @param int communiction id
+         * 
+         * @return bool true has queued recipients. false no recipients queued
+         */
+        public function has_recipients_queued($comm_id){
+            global $wpdb;
+            
+            $queued_recipients = $wpdb->get_var( $wpdb->prepare( 
+                                    "SELECT count(status) 
+                                     FROM $wpdb->ajcm_recipients 
+                                     WHERE communication_id = %d AND status = %s
+                                    ", 
+                                    $comm_id,'queued'
+                                    ) );
+            if($queued_recipients > 0){
+                return true;
+            }
+            else{
+                return false;
+            }
         }
 }
