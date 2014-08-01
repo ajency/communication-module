@@ -500,11 +500,11 @@ class CommunicationModule{
                                 'user_id'             => $recipient_user->ID,    
                                 'type'                => 'email',                  
                                 'value'               => $recipient_user->user_email, 
-                                'status'              =>'queued'
+                                'status'              =>'linedup'
                                     );
                 $recipient_added = $this->recipient_add($comm_id,$recipient_data);  //add recipient to communication recipients
                 if($recipient_added && !is_wp_error($recipient_added)){
-                        // call to process communication queue (temporary added to invoke process communication)
+                        // call to process communication queue (temporary added to invoke processing communications)
                         $this->process_communication_queue();
                         return true;
                 }
@@ -584,9 +584,9 @@ class CommunicationModule{
             
                $this->procces_communication($comm_data);
                
-               //if communication does not have queued recipients update communication processed date
-               if(! $this->has_recipients_queued($comm->id)){
-               $this->mark_communication_processed($comm->id);
+               //if communication does not have linedup recipients update communication processed date
+               if(! $this->has_recipients_linedup($comm->id)){
+                $this->mark_communication_processed($comm->id);
                }
            }
            
@@ -599,11 +599,11 @@ class CommunicationModule{
         public function procces_communication($comm_data){
             global $wpdb;
             
-            //get all the queued recipients of a communication
+            //get all the lined up recipients of a communication
             $queued_recipients = $wpdb->prepare(
                                     "SELECT * FROM $wpdb->ajcm_recipients
                                         WHERE communication_id=%d AND status=%s",
-                                    $comm_data['id'],'queued'
+                                    $comm_data['id'],'linedup'
                                   );
             
             $queued_recipients_result = $wpdb->get_results($queued_recipients);
@@ -636,9 +636,12 @@ class CommunicationModule{
             // switch case as to select the mail sending api
             switch ($mail_api) {
                 case "mandrill":
+                    
+                    $ajcm_plugin_options = get_option('ajcm_plugin_options'); // get the plugin options
+                    
+                    if(isset($ajcm_plugin_options['ajcm_mandrill_key']) && $ajcm_plugin_options['ajcm_mandrill_key'] != ''){
                     //create a an instance of Mandrill and pass the api key
-                    //TODO get the Mandrill api key from the plugin options
-                    $mandrill = new Mandrill('oX942jRxVF8KiojaV6SfXA');
+                    $mandrill = new Mandrill($ajcm_plugin_options['ajcm_mandrill_key']);
                     $url = '/messages/send-template';    //the mandrill api url to call to send email
                     
                     /* $to an array of recipient information. 
@@ -659,13 +662,13 @@ class CommunicationModule{
                     $params = array(
                                     'template_name' =>  $template_data['name'],    // the name of template on the mandrill account               
                                     'template_content' => $template_content,       // the editable content areas to be replaced in the template
-                                    'async' => true,                             // default value is false if recipieints more than 10 then async true
                                     'message' => array(
                                                     'subject' => $template_data['subject'],
                                                     'from_email' => 'testuser@example.com',
                                                     'from_name' => 'testsite',
                                                     'to' => $to,
-                                                    'metadata' => array('communication_type' => 'forgot_password')
+                                                    'metadata' => array('communication_type' => 'forgot_password'),
+                                                    'global_merge_vars' =>  $template_data['global_merge_vars']    
                                                  )
                                     );
 
@@ -680,6 +683,8 @@ class CommunicationModule{
                                     'status'              => $response[0]['status']
                                 );
                         $this->recipient_add($recipient->communication_id,$args);
+                    }
+                    
                     }
                     break;
                 default:
@@ -702,7 +707,7 @@ class CommunicationModule{
             $template_data = array();
             switch($communication_type){
                 case "forgot_password":
-                    $template_data['name'] = 'Forgot Password';
+                    $template_data['name'] = 'forgot-password'; // [slug] name or slug of a template that exists in the user's account
                     $homeurl = network_home_url( '/' );
                     $recipient_user = get_user_by( 'id', $recipient->user_id );
                     $userlogin = $recipient_user->user_login;
@@ -713,6 +718,8 @@ class CommunicationModule{
                     $template_data['dynamic_content'][] = array('name' =>'userlogin','content' =>$userlogin);
                     $template_data['dynamic_content'][] = array('name' =>'reseturl','content' => $reseturl);
                     
+                    $template_data['global_merge_vars'] = array();
+                    $template_data['global_merge_vars'][] = array('name' => 'FNAME','content' => $recipient_user->display_name);
                         // The blogname option is escaped with esc_html on the way into the database in sanitize_option
                         // we want to reverse this for the plain text arena of emails.
                         $blogname = wp_specialchars_decode(get_option('blogname'), ENT_QUOTES);
@@ -743,12 +750,12 @@ class CommunicationModule{
         }
         
         /*
-         * function to check if communication has recipients queued
+         * function to check if communication has recipients linedup
          * @param int communiction id
          * 
-         * @return bool true has queued recipients. false no recipients queued
+         * @return bool true has linedup recipients. false no recipients linedup
          */
-        public function has_recipients_queued($comm_id){
+        public function has_recipients_linedup($comm_id){
             global $wpdb;
             
             $queued_recipients = $wpdb->get_var( $wpdb->prepare( 
@@ -756,7 +763,7 @@ class CommunicationModule{
                                      FROM $wpdb->ajcm_recipients 
                                      WHERE communication_id = %d AND status = %s
                                     ", 
-                                    $comm_id,'queued'
+                                    $comm_id,'linedup'
                                     ) );
             if($queued_recipients > 0){
                 return true;

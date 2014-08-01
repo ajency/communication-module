@@ -16,7 +16,39 @@
 
 	<?php screen_icon(); ?>
 	<h2><?php echo esc_html( get_admin_page_title() ); ?></h2>
+        <p>Plugin Settings</p>
+        <?php 
+        global $ajcm_components;
+        //var_dump($ajcm_components);
+       
+         if (isset($_POST['submit'])){
+             $optionsarray= array();
 
-	<!-- TODO: Provide markup for your options page here. -->
+             $optionsarray['ajcm_mandrill_key'] = $_POST['ajcm_mandrill_key'];
+             
+             update_option('ajcm_plugin_options', $optionsarray);
+         }  
+         
+          $ajcm_plugin_options= get_option('ajcm_plugin_options');
+        ?>
+        
+        <form method="post">
+            <table>
+            <tr>
+            <td>
+            <label>Mandrill Api Key: 
+            </label></td>	
+            <td>
+            <input type="text"
+            name="ajcm_mandrill_key"
+            size="30"
+            value="<?php echo $ajcm_plugin_options['ajcm_mandrill_key'] ?>" />
+            </td>
+            </tr>
+            </table>
+            <input type="submit"
+            name="submit"
+            value="Save Changes" /> 
+        </form>
 
 </div>
