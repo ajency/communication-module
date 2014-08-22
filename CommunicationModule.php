@@ -64,6 +64,9 @@ class CommunicationModule{
 
 		// Load plugin text domain
 		add_action("init", array($this, "load_plugin_textdomain"));
+                
+                //add_action('init',array($this, "register_comm_components_ajcm"));
+
 
 		// add plugin tables to $wpdb inorder to access tables in format ie $wpdb->tablename
 		add_action("after_setup_theme", array($this, "add_plugin_tables_to_wpdb"));
@@ -83,9 +86,10 @@ class CommunicationModule{
 		add_action("TODO", array($this, "action_method_name"));
 		add_filter("TODO", array($this, "filter_method_name"));
                 
-                // hook to add a communication record on forgot password
-                add_action("retrieve_password_key", array($this, "add_forgot_password_communication"),10,2);
-
+                // hook function to be configured in the wp-crontrol plugin settings
+                add_action("ajcm_process_communication_queue", array($this, "cron_process_communication_queue"));
+                
+                
 	}
 
 	/**
@@ -505,7 +509,7 @@ class CommunicationModule{
                 $recipient_added = $this->recipient_add($comm_id,$recipient_data);  //add recipient to communication recipients
                 if($recipient_added && !is_wp_error($recipient_added)){
                         // call to process communication queue (temporary added to invoke processing communications)
-                        $this->process_communication_queue();
+                        //$this->process_communication_queue();
                         return true;
                 }
                 else{
@@ -562,7 +566,7 @@ class CommunicationModule{
         /*
          * function to process the communication records 
          */
-        public function process_communication_queue(){
+        public function cron_process_communication_queue(){
             global $wpdb;
            
            // get all the communications which are needed to be processed 
@@ -662,7 +666,7 @@ class CommunicationModule{
                            type:the header type to use for the recipient, defaults to "to" if not provided oneof(to, cc, bcc) 
                          */
                         $to = array();  
-                        $recipients_dbupdate_struct = array();
+                        $recipients_dbupdate_struct = array();          //array to hold recipients email=>id key value pair
                         foreach($recipients_email as $recipient){ 
                             $to[] = array('email' => $recipient->value,'name' => '','type'=>'to'); 
                             $recipients_dbupdate_struct[$recipient->value] = $recipient->id;

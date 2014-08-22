@@ -28,6 +28,10 @@ if (!defined("WPINC")) {
 	die;
 }
 
+// include the register components functions file
+require_once( plugin_dir_path( __FILE__ ) . '/src/register_components.php');
+
+
 require_once(plugin_dir_path(__FILE__) . "CommunicationModule.php");
 
 // include the Mandrill API class file to send emails through Mandrill
