@@ -509,7 +509,7 @@ class CommunicationModule{
                 $recipient_added = $this->recipient_add($comm_id,$recipient_data);  //add recipient to communication recipients
                 if($recipient_added && !is_wp_error($recipient_added)){
                         // call to process communication queue (temporary added to invoke processing communications)
-                        //$this->process_communication_queue();
+                        //$this->cron_process_communication_queue();
                         return true;
                 }
                 else{
@@ -628,7 +628,8 @@ class CommunicationModule{
             }
             
             if(!empty($recipients_email)){
-                $template_data = $this->get_template_details($recipients_email,$comm_data);
+                //$template_data = $this->get_template_details($recipients_email,$comm_data);
+                $template_data = $this->get_email_template_details($recipients_email,$comm_data);
                 $this->send_recipient_email($recipients_email,$comm_data,'mandrill',$template_data);
             }
             
@@ -636,6 +637,24 @@ class CommunicationModule{
                  $this->send_recipient_sms($recipients_sms,$comm_data);
             }
             
+        }
+        
+        
+        /*
+         * function to get template info for particular communication_type
+         * @param array $recipients_email a multidemensional array of recipient data
+         * @param $comm_data data about the communication to be processed (id,component,communication_type)
+         * 
+         * @return array $template_data 
+         */
+        public function get_email_template_details($recipients_email,$comm_data){
+            $component = $comm_data['component'];
+            require_once( plugin_dir_path( __FILE__ ) . '/src/components/'.$component.'.php');
+            
+            $communication_type = str_replace("-","_",$comm_data['communication_type']);
+            $function_name = 'getvars_'.$communication_type;
+            $template_data = $function_name($recipients_email,$comm_data);
+            return $template_data;
         }
         
         
