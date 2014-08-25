@@ -14,4 +14,24 @@ if (!defined("WP_UNINSTALL_PLUGIN")) {
 	exit;
 }
 
-// TODO: Define uninstall functionality here
+//Define uninstall functionality here
+
+ /**
+ * Delete database tables
+ */
+function delete_plugin_data() {
+    global $wpdb;  
+        
+	$sql = "DROP TABLE ". $wpdb->prefix."ajcm_communications";
+	$wpdb->query($sql);
+        
+	$sql = "DROP TABLE ". $wpdb->prefix."ajcm_communication_meta";
+	$wpdb->query($sql);
+        
+	$sql = "DROP TABLE ". $wpdb->prefix."ajcm_recipients";
+	$wpdb->query($sql);
+        
+	$sql = "DROP TABLE ". $wpdb->prefix."ajcm_emailpreferences";
+	$wpdb->query($sql);
+}
+delete_plugin_data();

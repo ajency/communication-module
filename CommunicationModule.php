@@ -89,7 +89,7 @@ class CommunicationModule{
                 // hook function to be configured in the wp-crontrol plugin settings
                 add_action("ajcm_process_communication_queue", array($this, "cron_process_communication_queue"));
                 
-                
+                $this->register_components();
 	}
 
 	/**
@@ -300,6 +300,17 @@ class CommunicationModule{
 	public function filter_method_name() {
 		// TODO: Define your filter hook callback here
 	}
+        
+        /*
+         * function to create a communication record
+         */
+        public function create_communication($args = '',$meta = array(),$recipients_args=''){
+            $comm_id = $this->communication_add($args,$meta);
+            
+            foreach($recipients_args as $recipient_data){
+                $recipient_added = $this->recipient_add($comm_id,$recipient_data);
+            }
+        }
         
         /*
          * add a communication
@@ -812,5 +823,14 @@ class CommunicationModule{
             else{
                 return false;
             }
+        }
+
+         /*
+          * function to register the communication components and their types
+          */       
+        public function register_components(){
+            $component_name = 'users';
+            $component_type = array('forgot_password','registration','activation');
+            register_comm_component($component_name,$component_type);
         }
 }
