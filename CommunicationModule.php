@@ -3,7 +3,7 @@
  * Communication Module
  *
  * @package   communication-module
- * @author    Team Ajency <talktous@ajency.in>
+ * @author    Team Ajency <wordpress@ajency.in>
  * @license   GPL-2.0+
  * @link      http://ajency.in
  * @copyright 7-24-2014 Ajency.in
@@ -13,7 +13,7 @@
  * Communication Module class.
  *
  * @package CommunicationModule
- * @author  Team Ajency <talktous@ajency.in>
+ * @author  Team Ajency <wordpress@ajency.in>
  */
 class CommunicationModule{
 	/**
@@ -303,13 +303,40 @@ class CommunicationModule{
         
         /*
          * function to create a communication record
+         *    @param array $args {
+         *     An array of arguments.
+         *     @type int|bool $id  Default: false.
+         *     @type string $component 
+         *     @type string $communication_type
+         *     @type int $user_id 
+         *     @type string $priority (high,medium,low)
+         *     @type datetime $created
+         *     @type datetime $processed
+         *     }
+         * @param array $meta
+         * @param array $recipients_args {
+         *     An array of arguments.
+         *     @type int $user_id.
+         *     @type string $type (email|phone) 
+         *     @type string $value values of $type
+         *     @type int $thirdparty_id 
+         *     @type string $status
+         *     }
+         * 
+         * @return int|false|WP_Error comm_id on successful add. WP_Error on insert error.
          */
         public function create_communication($args = '',$meta = array(),$recipients_args=''){
             $comm_id = $this->communication_add($args,$meta);
             
-            foreach($recipients_args as $recipient_data){
-                $recipient_added = $this->recipient_add($comm_id,$recipient_data);
+            // if communication id is added add communication recipients
+            if($comm_id && !is_wp_error($comm_id)){
+                foreach($recipients_args as $recipient_data){
+                    $recipient_added = $this->recipient_add($comm_id,$recipient_data);
+                }
             }
+
+            return $comm_id;
+
         }
         
         /*
@@ -323,8 +350,8 @@ class CommunicationModule{
          *     @type string $priority (high,medium,low)
          *     @type datetime $created
          *     @type datetime $processed
-         *     @type array $meta
          *     }
+         *     @param array $meta
          * @return int|false|WP_Error comm_id on successful add. WP_Error on insert error.
          */
         public function communication_add ( $args = '' ,$meta = array()) {
@@ -341,6 +368,11 @@ class CommunicationModule{
             );
             $params = wp_parse_args( $args, $defaults );
             extract( $params, EXTR_SKIP );
+            
+            //check if component and communication type is registered
+            if(! $this->is_registered_component_type($component,$communication_type)){
+                return false;
+            }
             
             // add a new communication record when $id is false.
             if(!$id){
@@ -505,31 +537,20 @@ class CommunicationModule{
                           'communication_type' => 'forgot_password',
                           'priority'           => 'high'
                           );
-            $comm_id = $this->communication_add($data,$meta);
             
-            // if communication id is added add communication recipients
-            if($comm_id && !is_wp_error($comm_id)){
-
-                $recipient_user = get_user_by( 'login', $user_login );
-                $recipient_data = array(
+            $recipient_user = get_user_by( 'login', $user_login );
+            $recipient_data = array();
+            $recipient_data[] = array(
                                 'user_id'             => $recipient_user->ID,    
                                 'type'                => 'email',                  
                                 'value'               => $recipient_user->user_email, 
                                 'status'              =>'linedup'
-                                    );
-                $recipient_added = $this->recipient_add($comm_id,$recipient_data);  //add recipient to communication recipients
-                if($recipient_added && !is_wp_error($recipient_added)){
-                        // call to process communication queue (temporary added to invoke processing communications)
-                        //$this->cron_process_communication_queue();
-                        return true;
-                }
-                else{
-                        return $recipient_added;
-                }
-            }else{
-                return $comm_id;
-            }       
+                                );           
             
+            $comm_id = $this->create_communication($data,$meta,$recipient_data);
+            
+            return $comm_id;
+                
         }
         
         /*
@@ -581,22 +602,11 @@ class CommunicationModule{
             global $wpdb;
            
            // get all the communications which are needed to be processed 
-           $pending_comms_query = $wpdb->prepare(
-                                "SELECT * FROM $wpdb->ajcm_communications
-                                    WHERE processed=%s",
-                                '0000-00-00 00:00:00'
-                                );
-           
-           $pending_comms=$wpdb->get_results($pending_comms_query);
+           $pending_comms = $this->get_communications('queued');
            
            // loop through the pending communications and call process communication function
            foreach ($pending_comms as $comm){
-               $comm_data = array(
-                                 'id' => $comm->id,
-                                 'component' => $comm->component,
-                                 'communication_type' => $comm->communication_type
-                                  );
-            
+               $comm_data  = $this->get_communication_data($comm);
                $this->procces_communication($comm_data);
                
                //if communication does not have linedup recipients update communication processed date
@@ -605,6 +615,49 @@ class CommunicationModule{
                }
            }
            
+        }
+        
+        /*
+         * function to built a communication's data
+         * @param object $comm
+         * 
+         * @return array $communication_data
+         */
+        public function get_communication_data($comm){
+            $communication_data = array(
+                                 'id' => $comm->id,
+                                 'component' => $comm->component,
+                                 'communication_type' => $comm->communication_type
+                                  );
+            return $communication_data;
+        }
+        
+        
+        /*
+         * function to get communication records
+         * @param string $type
+         * 
+         * @return object $qry_results $wpdb query results
+         * 
+         */
+        public function get_communications($type = 'queued'){
+            global $wpdb;
+            
+            switch ($type) {
+                case "queued":
+                    $qry_string =  $wpdb->prepare(
+                                    "SELECT * FROM $wpdb->ajcm_communications
+                                        WHERE processed=%s",
+                                    '0000-00-00 00:00:00'
+                                    );
+                    break;
+                default:
+                    break;  
+            }
+           
+           $qry_results=$wpdb->get_results($qry_string);
+           
+           return $qry_results;
         }
  
         /*
@@ -616,14 +669,8 @@ class CommunicationModule{
             // group recipients based on communication type email/sms
             $recipients_email = $recipients_sms = array();
             
-            //get all the lined up recipients of a communication
-            $queued_recipients = $wpdb->prepare(
-                                    "SELECT * FROM $wpdb->ajcm_recipients
-                                        WHERE communication_id=%d AND status=%s",
-                                    $comm_data['id'],'linedup'
-                                  );
-            
-            $queued_recipients_result = $wpdb->get_results($queued_recipients);
+            //get all the lined up recipients of a communication            
+            $queued_recipients_result = $this->get_recipients($comm_data['id'],'linedup');
             
             // loop through recipients to send email/sms
             foreach ($queued_recipients_result as $recipient){
@@ -650,7 +697,34 @@ class CommunicationModule{
             
         }
         
-        
+ 
+        /*
+         * function to get recipients of a communication 
+         * @param int $comm_id
+         * @param string $comm_id
+         * 
+         * @return object $qry_results $wpdb query results
+         * 
+         */
+        public function get_recipients ($comm_id,$status = 'linedup'){
+            global $wpdb;
+            
+            switch ($type) {
+                case "linedup":
+                    $qry_string =  $wpdb->prepare(
+                                    "SELECT * FROM $wpdb->ajcm_recipients
+                                        WHERE communication_id=%d AND status=%s",
+                                    $comm_id,'linedup'
+                                  );
+                    break;
+                default:
+                    break;  
+            }
+           
+           $qry_results=$wpdb->get_results($qry_string);
+           
+           return $qry_results;            
+        }
         /*
          * function to get template info for particular communication_type
          * @param array $recipients_email a multidemensional array of recipient data
