@@ -89,7 +89,14 @@ class CommunicationModule{
                 // hook function to be configured in the wp-crontrol plugin settings
                 add_action("ajcm_process_communication_queue", array($this, "cron_process_communication_queue"));
                 
-                $this->register_components();
+                // hook function to register plugin defined and theme defined components
+                add_action("init", array($this, "register_components"));
+                
+                // hook function to check if defined components have component specific file  
+                add_action("admin_notices", array($this, "add_plugin_dashboard_notices") );
+                
+                 // hook to add a communication record on forgot password
+                //add_action("retrieve_password_key", array($this, "add_forgot_password_communication"),10,2);
 	}
 
 	/**
@@ -548,7 +555,7 @@ class CommunicationModule{
                                 );           
             
             $comm_id = $this->create_communication($data,$meta,$recipient_data);
-            
+                     
             return $comm_id;
                 
         }
@@ -671,7 +678,7 @@ class CommunicationModule{
             
             //get all the lined up recipients of a communication            
             $queued_recipients_result = $this->get_recipients($comm_data['id'],'linedup');
-            
+          
             // loop through recipients to send email/sms
             foreach ($queued_recipients_result as $recipient){
 
@@ -709,7 +716,7 @@ class CommunicationModule{
         public function get_recipients ($comm_id,$status = 'linedup'){
             global $wpdb;
             
-            switch ($type) {
+            switch ($status) {
                 case "linedup":
                     $qry_string =  $wpdb->prepare(
                                     "SELECT * FROM $wpdb->ajcm_recipients
@@ -734,11 +741,29 @@ class CommunicationModule{
          */
         public function get_email_template_details($recipients_email,$comm_data){
             $component = $comm_data['component'];
-            require_once( plugin_dir_path( __FILE__ ) . '/src/components/'.$component.'.php');
             
+            //get the current theme path
+            $theme_path = get_template_directory(); 
+            
+            //check for component file in plugin defined components directory
+            if(file_exists(plugin_dir_path( __FILE__ ) . '/src/components/'.$component.'.php')){
+                require_once( plugin_dir_path( __FILE__ ) . '/src/components/'.$component.'.php');
+            }
+            //check for component file in theme defined components directory
+            elseif(file_exists($theme_path . '/ajcm_components/'.$component.'.php')){
+                require_once( $theme_path. '/ajcm_components/'.$component.'.php');
+            }
+            else{
+                // NO file exists for given communication component
+                $template_data = array();
+                return $template_data;
+            }
+            
+            //get the function postfix for getting the template data based on communication_type 
             $communication_type = str_replace("-","_",$comm_data['communication_type']);
             $function_name = 'getvars_'.$communication_type;
             $template_data = $function_name($recipients_email,$comm_data);
+            
             return $template_data;
         }
         
@@ -906,5 +931,35 @@ class CommunicationModule{
             $component_name = 'users';
             $component_type = array('forgot_password','registration','activation');
             register_comm_component($component_name,$component_type);
+        }
+        
+        /*
+         * function to display notice if registered component do not have component specific file in plugin directory or theme directory
+         */
+        public function add_plugin_dashboard_notices(){
+            global $ajcm_components;
+            
+            $invalid_components = array();
+            //get the current theme path
+            $theme_path = get_template_directory(); 
+            
+            foreach($ajcm_components as $component => $communication_types){
+                //check for component file in plugin defined components directory
+               if(file_exists(plugin_dir_path( __FILE__ ) . '/src/components/'.$component.'.php')){
+                   continue;
+               }
+               //check for component file in theme defined components directory
+               elseif(file_exists($theme_path . '/ajcm_components/'.$component.'.php')){
+                   continue;
+               }
+               else{
+                   $invalid_components[] = $component;
+               }               
+            }
+           if (!empty($invalid_components)){ ?>
+           <div class="error">
+               <p>Communication Component file not exists for Registered Components->  <strong><?php echo implode(',',$invalid_components); ?></strong> .Please add component file. </p>
+           </div>
+           <?php }      
         }
 }
