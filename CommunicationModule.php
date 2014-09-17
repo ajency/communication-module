@@ -569,7 +569,11 @@ class CommunicationModule{
          */
         public function is_registered_component_type($component,$type){
             global $ajcm_components;
-
+            
+            if(is_null($ajcm_components)){
+                    return false;
+            }
+          
             if(!array_key_exists($component, $ajcm_components))
                     return false;
  
