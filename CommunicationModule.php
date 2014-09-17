@@ -812,10 +812,10 @@ class CommunicationModule{
                                         'template_content' => $template_content,       // the editable content areas to be replaced in the template
                                         'message' => array(
                                                         'subject' => $template_data['subject'],
-                                                        'from_email' => 'testuser@example.com',
-                                                        'from_name' => 'testsite',
+                                                        'from_email' => $template_data['from_email'],
+                                                        'from_name' => $template_data['from_name'],
                                                         'to' => $to,
-                                                        'metadata' => array('communication_type' => 'forgot_password'),
+                                                        'metadata' => array('communication_type' => $comm_data['communication_type']),
                                                         'global_merge_vars' =>  $template_data['global_merge_vars']    
                                                      )
                                         );
