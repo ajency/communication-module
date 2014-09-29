@@ -34,7 +34,7 @@ function theme_defined_components($ajcm_comp){
     $defined_comm_components = apply_filters('add_commponents_filter',$defined_comm_components);
     
     foreach($defined_comm_components as $component => $comm_types){
-            if(!array_key_exists($component, $comm_types))
+            if(!array_key_exists($component, $ajcm_comp))
                 $ajcm_comp[$component] = array();
             
                 foreach($comm_types as $value){
