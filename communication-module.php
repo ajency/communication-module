@@ -31,6 +31,9 @@ if (!defined("WPINC")) {
 // include the register components functions file
 require_once( plugin_dir_path( __FILE__ ) . '/src/register_components.php');
 
+// include the plugin api file
+require_once( plugin_dir_path( __FILE__ ) . '/src/api.php');
+
 
 require_once(plugin_dir_path(__FILE__) . "CommunicationModule.php");
 

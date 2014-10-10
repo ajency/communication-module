@@ -129,7 +129,7 @@ class CommunicationModule{
             
                 //create tables logic on plugin activation
                 $communication_tbl=$wpdb->prefix."ajcm_communications";
-                $communication_sql="CREATE TABLE `{$communication_tbl}` (
+                $communication_sql="CREATE TABLE IF NOT EXISTS `{$communication_tbl}` (
                                `id` int(11) NOT NULL primary key AUTO_INCREMENT,           
                                `component` varchar(75) NOT NULL,
                                `communication_type` varchar(75) NOT NULL,
@@ -140,7 +140,7 @@ class CommunicationModule{
                                 );";
 
                 $communication_meta_tbl=$wpdb->prefix."ajcm_communication_meta";            
-                $communication_meta_sql="CREATE TABLE `{$communication_meta_tbl}` (
+                $communication_meta_sql="CREATE TABLE IF NOT EXISTS `{$communication_meta_tbl}` (
                                 `id` int(11) NOT NULL primary key AUTO_INCREMENT,
                                 `communication_id` int(11) DEFAULT NULL,
                                 `meta_key` varchar(255) NOT NULL,
@@ -148,7 +148,7 @@ class CommunicationModule{
                                  );";
 
                 $reciepients_tbl=$wpdb->prefix."ajcm_recipients";            
-                $reciepients_sql="CREATE TABLE `{$reciepients_tbl}` (
+                $reciepients_sql="CREATE TABLE IF NOT EXISTS `{$reciepients_tbl}` (
                                 `id` int(11) NOT NULL primary key AUTO_INCREMENT,
                                 `communication_id` int(11) DEFAULT NULL,
                                 `user_id` int(11) DEFAULT '0',
@@ -159,7 +159,7 @@ class CommunicationModule{
                                  );";   
 
                 $email_preferences_tbl=$wpdb->prefix."ajcm_emailpreferences";            
-                $email_preferences_sql="CREATE TABLE `{$email_preferences_tbl}` (
+                $email_preferences_sql="CREATE TABLE IF NOT EXISTS `{$email_preferences_tbl}` (
                                 `id` int(11) NOT NULL primary key AUTO_INCREMENT,
                                 `user_id` int(11) DEFAULT '0',
                                 `communication_type` varchar(255) NOT NULL,
@@ -577,7 +577,7 @@ class CommunicationModule{
             if(!array_key_exists($component, $ajcm_components))
                     return false;
  
-            if(is_array($ajcm_components[$component]) && !in_array($type, $ajcm_components[$component]))
+            if(is_array($ajcm_components[$component]) && !array_key_exists($type, $ajcm_components[$component]))
                     return false;
             
             return true;
@@ -933,7 +933,9 @@ class CommunicationModule{
           */       
         public function register_components(){
             $component_name = 'users';
-            $component_type = array('forgot_password','registration','activation');
+            $component_type = array('forgot_password' =>array('preference'=>0) ,
+                                    'registration'=>array('preference'=>0),
+                                    'activation'=>array('preference'=>0));
             register_comm_component($component_name,$component_type);
         }
         
@@ -965,5 +967,36 @@ class CommunicationModule{
                <p>Communication Component file not exists for Registered Components->  <strong><?php echo implode(',',$invalid_components); ?></strong> .Please add component file. </p>
            </div>
            <?php }      
+        }
+        
+        public function get_user_preferences($user_id,$communication_type=''){
+            global $wpdb;
+            $user_preferences = array();
+            
+            $query = "SELECT communication_type,preference FROM $wpdb->ajcm_emailpreferences WHERE 1=1";
+            
+            $args = array();
+ 
+	    if ( $user_id > 0 ) {
+	     $query .= " AND user_id = %d ";
+	     $args[] = $user_id;
+	     }
+             
+	    if ( $communication_type != '' ) {
+	     $query .= " AND communication_type = '%s' ";
+	     $args[] = $communication_type;
+	    }
+
+            if(empty($args)){
+                return $user_preferences;
+            }
+           
+            $qry_results=$wpdb->get_results($wpdb->prepare($query,$args));
+            
+            foreach($qry_results as $preference){
+                $user_preferences[$preference->communication_type] = $preference->preference;
+            }
+            
+            return $user_preferences;
         }
 }

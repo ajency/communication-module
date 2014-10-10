@@ -19,9 +19,9 @@ function register_comm_component($component_name = '',$component_type = array())
                     $ajcm_components[$component_name] = array();
         }
 
-        foreach($component_type as $value){
-                    $ajcm_components[$component_name][]=$value;
-                    $ajcm_components[$component_name] = array_unique($ajcm_components[$component_name]);
+        foreach($component_type as $key => $value){
+            if(!array_key_exists($key, $ajcm_components[$component_name]))
+                    $ajcm_components[$component_name][$key]=$value;
         }
     }
 }
@@ -37,9 +37,11 @@ function theme_defined_components($ajcm_comp){
             if(!array_key_exists($component, $ajcm_comp))
                 $ajcm_comp[$component] = array();
             
-                foreach($comm_types as $value){
-                $ajcm_comp[$component][]=$value;
-                $ajcm_comp[$component] = array_unique($ajcm_comp[$component]);
+                foreach($comm_types as $key => $value){
+                    
+                 if(!array_key_exists($key, $ajcm_comp[$component]))
+                    $ajcm_comp[$component][$key]=$value;
+                 
                 }
     }
 
