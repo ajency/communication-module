@@ -584,6 +584,24 @@ class CommunicationModule{
         }
         
         /*
+         * Check if a component's communication type preference is editable
+         * @param string $component
+         * @param string $type
+         * 
+         * return bool true if preference is editable 
+         */        
+        public function is_preference_editable($component,$type){
+            global $ajcm_components;
+            
+            $preference = $ajcm_components[$component][$type]['preference'];
+            
+            if($preference == 0){
+                return false;
+            }
+            return true;
+        }
+        
+        /*
          * function to get communication meta data
          * @param int $comm_id 
          * @param string $meta_key
@@ -969,6 +987,13 @@ class CommunicationModule{
            <?php }      
         }
         
+        /*
+         * function to get the user email preferences
+         * @param int $user_id
+         * @param string $communication_type
+         * 
+         * @return array $user_preferences
+         */
         public function get_user_preferences($user_id,$communication_type=''){
             global $wpdb;
             $user_preferences = array();
@@ -999,4 +1024,60 @@ class CommunicationModule{
             
             return $user_preferences;
         }
+        
+        /*
+         * update a user prefernce or create a new if does not exist
+         * @param string $preference yes|no
+         * @param int $user_id
+         * @param string $communication_type
+         * 
+         * @return array $ret 
+         */
+        public function update_user_email_preference($preference,$user_id,$communication_type){
+            global $wpdb;
+            $ret =array();
+            
+            // update the user prefernce record
+            if($this->email_preference_exists($user_id,$communication_type)){
+                $qry = $wpdb->prepare(
+                                        "UPDATE $wpdb->ajcm_emailpreferences SET preference=%s
+                                            WHERE user_id=%d AND communication_type LIKE %s",
+                                        $preference,$user_id,$communication_type
+                                      );
+                $ret['msg'] = 'Prefernce Updated';
+            }
+            else{
+                   $qry = $wpdb->prepare(
+                                        "INSERT INTO $wpdb->ajcm_emailpreferences (user_id,communication_type,preference)
+                                            values(%d,%s,%s)",
+                                        $user_id,$communication_type,$preference
+                                      );    
+                   $ret['msg'] = 'Prefernce Created';
+            }
+
+            $q = $wpdb->query($qry);  
+            $ret['count'] = $q; 
+            return $ret;
+        }
+        
+        /*
+         * check if email preference exists for an user
+         * @param int $user_id
+         * @param string $communication_type
+         * 
+         * return bool 
+         */
+        public function email_preference_exists($user_id,$communication_type){
+            global $wpdb;
+            
+            $count = $wpdb->get_var( $wpdb->prepare( "SELECT count(id) FROM $wpdb->ajcm_emailpreferences WHERE "
+                    . "user_id = %d AND communication_type = %s",$user_id,$communication_type ));
+            
+            if($count > 0)
+                return true;
+            else
+                return false;        
+        }
+        
+        
 }
