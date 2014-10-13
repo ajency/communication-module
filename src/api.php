@@ -45,16 +45,18 @@ if(is_plugin_active('json-rest-api/plugin.php')){
              $routes['/ajcm/components/(?P<component_name>\w+)'] = array(
                 array( array( $this, 'get_component'), WP_JSON_Server::READABLE ),
                 );
-             $routes['/ajcm/emailpreferences/(?P<user_id>\d+)'] = array(
+             $routes['/ajcm/emailpreferences/(?P<user_id>\d+)/(?P<preference_type>\w+)'] = array(
                 array( array( $this, 'user_emailpreferences'), WP_JSON_Server::READABLE ),
                 );
-             $routes['/ajcm/emailpreferences/(?P<user_id>\d+)/(?P<communication_type>\w+)'] = array(
+             $routes['/ajcm/emailpreferences/(?P<user_id>\d+)/(?P<communication_type>\w+)/(?P<preference_type>\w+)'] = array(
                 array( array( $this, 'user_emailpreference'), WP_JSON_Server::READABLE ),
                 ); 
              $routes['/ajcm/emailpreferences/(?P<user_id>\d+)/(?P<component>\w+)/(?P<communication_type>\w+)'] = array(
                 array( array( $this, 'update_user_emailpreference'), WP_JSON_Server::EDITABLE | WP_JSON_Server::ACCEPT_JSON ),
                 ); 
-             
+             $routes['/ajcm/mandrill/templatepreview'] = array(
+                array( array( $this, 'get_template_preview'), WP_JSON_Server::CREATABLE  | WP_JSON_Server::ACCEPT_JSON ),
+                );              
             return $routes;
         }
         
@@ -80,11 +82,11 @@ if(is_plugin_active('json-rest-api/plugin.php')){
             }
         }
         
-        public function user_emailpreferences($user_id){    
+        public function user_emailpreferences($user_id,$preference_type){    
             global $aj_comm;
             
             $user_id = intval($user_id);
-            $response = $aj_comm->get_user_preferences($user_id);
+            $response = $aj_comm->get_user_preferences($user_id,$preference_type);
             if(empty($response)){
                  wp_send_json_error($response);
             }else{
@@ -93,22 +95,15 @@ if(is_plugin_active('json-rest-api/plugin.php')){
            
         }
         
-        public function user_emailpreference($user_id,$communication_type){
+        public function user_emailpreference($user_id,$communication_type,$preference_type){
             global $aj_comm;
             
             $user_id = intval($user_id);
-            $response = $aj_comm->get_user_preferences($user_id,$communication_type);
+            $response = $aj_comm->get_user_preferences($user_id,$preference_type,$communication_type);
             if(empty($response)){
-                 wp_send_json_error($response);
-            }else{
-                
-                 if($response[$communication_type] == 'yes' ){
-                     $ret = 1;
-                 }else{
-                     $ret = 0;
-                 }
-                 
-                 wp_send_json(array('success'=>true,'data'=>$ret));
+                 wp_send_json(array('success'=>false));
+            }else{   
+                 wp_send_json(array('success'=>true));
             }   
         }
         
@@ -121,16 +116,21 @@ if(is_plugin_active('json-rest-api/plugin.php')){
                 wp_send_json_error($response); 
             }
             
-            if(! $aj_comm->is_preference_editable($component,$communication_type) ){
+            if(! $aj_comm->is_preference_editable($component,$communication_type,$data['preference']) ){
                 $response = array('data' => array('msg'=>'Preference not editable.'));
                 wp_send_json_error($response); 
             }
             
-            $preference = (bool) $data['preference'];
-            $preference = ($preference == true) ? 'yes':'no';
+            $preference = $data['preference'];
+            $preference_value = $data['value'];
             
-            $resp = $aj_comm->update_user_email_preference($preference,$user_id,$communication_type);
+            $resp = $aj_comm->update_user_email_preference($preference,$preference_value,$user_id,$communication_type);
             wp_send_json(array('success'=>true,'data'=>$resp));
+        }
+        
+        public function get_template_preview($data){
+            $template_name = $data['template_name'];
+            wp_send_json($data);
         }
             
     }

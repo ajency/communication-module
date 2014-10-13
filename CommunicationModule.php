@@ -592,12 +592,12 @@ class CommunicationModule{
          * 
          * return bool true if preference is editable 
          */        
-        public function is_preference_editable($component,$type){
+        public function is_preference_editable($component,$type,$pref_type){
             global $ajcm_components;
             
-            $preference = $ajcm_components[$component][$type]['preference'];
+            $comm_preferences = $ajcm_components[$component][$type];
             
-            if($preference == 0){
+            if(empty($comm_preferences) || $comm_preferences[$pref_type] == 0){
                 return false;
             }
             return true;
@@ -953,9 +953,10 @@ class CommunicationModule{
           */       
         public function register_components(){
             $component_name = 'users';
-            $component_type = array('forgot_password' =>array('preference'=>0) ,
-                                    'registration'=>array('preference'=>0),
-                                    'activation'=>array('preference'=>0));
+            $preferences = array('recieve_email' => 0,'digest_email' =>0);
+            $component_type = array('forgot_password' =>$preferences ,
+                                    'registration'=>$preferences,
+                                    'activation'=>$preferences);
             register_comm_component($component_name,$component_type);
         }
         
@@ -996,7 +997,7 @@ class CommunicationModule{
          * 
          * @return array $user_preferences
          */
-        public function get_user_preferences($user_id,$communication_type=''){
+        public function get_user_preferences($user_id,$pref_type = 'recieve_email',$communication_type=''){
             global $wpdb;
             $user_preferences = array();
             
@@ -1017,11 +1018,14 @@ class CommunicationModule{
             if(empty($args)){
                 return $user_preferences;
             }
+            
+            $query .= " AND preference = '%s' ";
+	    $args[] = $pref_type;
            
             $qry_results=$wpdb->get_results($wpdb->prepare($query,$args));
             
             foreach($qry_results as $preference){
-                $user_preferences[$preference->communication_type] = $preference->preference;
+                $user_preferences[] = $preference->communication_type;
             }
             
             return $user_preferences;
@@ -1035,18 +1039,21 @@ class CommunicationModule{
          * 
          * @return array $ret 
          */
-        public function update_user_email_preference($preference,$user_id,$communication_type){
+        public function update_user_email_preference($preference,$pref_value,$user_id,$communication_type){
             global $wpdb;
             $ret =array();
             
-            // update the user prefernce record
-            if($this->email_preference_exists($user_id,$communication_type)){
+            if($pref_value == 0){
                 $qry = $wpdb->prepare(
-                                        "UPDATE $wpdb->ajcm_emailpreferences SET preference=%s
-                                            WHERE user_id=%d AND communication_type LIKE %s",
-                                        $preference,$user_id,$communication_type
+                                        "DELETE FROM $wpdb->ajcm_emailpreferences 
+                                            WHERE user_id=%d AND communication_type LIKE %s AND preference LIKE %s",
+                                        $user_id,$communication_type,$preference
                                       );
-                $ret['msg'] = 'Preference Updated';
+                $ret['msg'] = 'Preference Deleted';
+            }
+            elseif($this->email_preference_exists($user_id,$communication_type,$preference)){
+                $ret['msg'] = 'Preference Exists';
+                return $ret;
             }
             else{
                    $qry = $wpdb->prepare(
@@ -1054,11 +1061,10 @@ class CommunicationModule{
                                             values(%d,%s,%s)",
                                         $user_id,$communication_type,$preference
                                       );    
-                   $ret['msg'] = 'Preference Created';
+                   $ret['msg'] = 'Preference Added';
             }
 
             $q = $wpdb->query($qry);  
-            $ret['count'] = $q; 
             return $ret;
         }
         
@@ -1069,11 +1075,11 @@ class CommunicationModule{
          * 
          * return bool 
          */
-        public function email_preference_exists($user_id,$communication_type){
+        public function email_preference_exists($user_id,$communication_type,$pref_type){
             global $wpdb;
             
             $count = $wpdb->get_var( $wpdb->prepare( "SELECT count(id) FROM $wpdb->ajcm_emailpreferences WHERE "
-                    . "user_id = %d AND communication_type = %s",$user_id,$communication_type ));
+                    . "user_id = %d AND communication_type = %s AND preference = %s",$user_id,$communication_type,$pref_type ));
             
             if($count > 0)
                 return true;
