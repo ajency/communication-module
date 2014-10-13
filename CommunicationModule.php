@@ -134,6 +134,7 @@ class CommunicationModule{
                                `component` varchar(75) NOT NULL,
                                `communication_type` varchar(75) NOT NULL,
                                `user_id` int(11) DEFAULT '0',
+                               `blog_id` int(11) NOT NULL DEFAULT '0',
                                `priority` varchar(25) NOT NULL,
                                `created` datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
                                `processed` datetime NOT NULL DEFAULT '0000-00-00 00:00:00'
@@ -466,7 +467,8 @@ class CommunicationModule{
               
             $defaults = array(
                     'id'                  => false,
-                    'user_id'             => 0,    
+                    'user_id'             => 0,  
+                    'blog_id'             => get_current_blog_id(),
                     'type'                => '',                  
                     'value'               => '',    
                     'thirdparty_id'       => '',
@@ -484,7 +486,7 @@ class CommunicationModule{
                                             'type' => $type,
                                             'value' => $value,
                                             'thirdparty_id' => $thirdparty_id,
-                                            'status' => $status
+                                            'status' => 'linedup'
                                             ));
                         if ( false === $q )
                             return new WP_Error('recipient_add_failed', __('Add Recipient Failed.') );
@@ -1044,7 +1046,7 @@ class CommunicationModule{
                                             WHERE user_id=%d AND communication_type LIKE %s",
                                         $preference,$user_id,$communication_type
                                       );
-                $ret['msg'] = 'Prefernce Updated';
+                $ret['msg'] = 'Preference Updated';
             }
             else{
                    $qry = $wpdb->prepare(
@@ -1052,7 +1054,7 @@ class CommunicationModule{
                                             values(%d,%s,%s)",
                                         $user_id,$communication_type,$preference
                                       );    
-                   $ret['msg'] = 'Prefernce Created';
+                   $ret['msg'] = 'Preference Created';
             }
 
             $q = $wpdb->query($qry);  
