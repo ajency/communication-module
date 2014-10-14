@@ -378,8 +378,9 @@ class CommunicationModule{
             extract( $params, EXTR_SKIP );
             
             //check if component and communication type is registered
-            if(! $this->is_registered_component_type($component,$communication_type)){
-                return false;
+            $check_comp_registered = $this->is_registered_component_type($component,$communication_type);
+            if(! $check_comp_registered['status']){
+                return new WP_Error('component_not_registered', __($check_comp_registered['msg']) );
             }
             
             // add a new communication record when $id is false.
@@ -417,16 +418,16 @@ class CommunicationModule{
          * @param string $meta_key 
          * @param string $meta_value 
          * 
-         * @return int|false|WP_Error recipient_id on successful add. false on invalid data. WP_Error on insert error.
+         * @return int|WP_Error recipient_id on successful add. false on invalid data. WP_Error on insert error.
          */       
         public function communication_meta_add ( $comm_id, $meta_key ,$meta_value ) {
             global $wpdb;
             
-            if (!$meta_key )                          // if no meta_key passed to add return false.
-                return false;
+            if (!$meta_key )                          // if no meta_key passed to add return WP_Error.
+                return new WP_Error('communication_meta_add_failed', __('Invalid meta key.') );
             
-            if ( !$comm_id = absint($comm_id) )       // if no comm_id passed to add return false.
-                return false;
+            if ( !$comm_id = absint($comm_id) )       // if no comm_id passed to add return WP_Error.
+                return new WP_Error('communication_meta_add_failed', __('Invalid communication id.') );
             
             	$meta_key = wp_unslash($meta_key);
                 $meta_value = wp_unslash($meta_value);
@@ -463,7 +464,7 @@ class CommunicationModule{
             global $wpdb;
             
               if ( !$comm_id = absint($comm_id) )
-                return false;
+                return new WP_Error('recipient_addupdate_failed', __('Invalid communication id.') );
               
             $defaults = array(
                     'id'                  => false,
@@ -571,18 +572,20 @@ class CommunicationModule{
          */
         public function is_registered_component_type($component,$type){
             global $ajcm_components;
-            
+                        
             if(is_null($ajcm_components)){
-                    return false;
+                    return array('status' => false,'msg' => 'Componenets not registered');
             }
           
             if(!array_key_exists($component, $ajcm_components))
-                    return false;
+                    return array('status' => false,'msg' => 'Componenet '.$component.' not registered');
  
             if(is_array($ajcm_components[$component]) && !array_key_exists($type, $ajcm_components[$component]))
-                    return false;
+                    return array('status' => false,'msg' => 'Communication type '.$type.' not registered for component');
             
-            return true;
+            
+            return array('status' => true);
+            
         }
         
         /*
@@ -840,7 +843,8 @@ class CommunicationModule{
                                                         'from_name' => $template_data['from_name'],
                                                         'to' => $to,
                                                         'metadata' => array('communication_type' => $comm_data['communication_type']),
-                                                        'global_merge_vars' =>  $template_data['global_merge_vars']    
+                                                        'global_merge_vars' =>  $template_data['global_merge_vars'],
+                                                        'merge_vars' => $template_data['global_merge_vars']
                                                      )
                                         );
 
@@ -1046,7 +1050,7 @@ class CommunicationModule{
                 WHERE user_id=%d AND communication_type LIKE %s",
                 $preference,$user_id,$communication_type
                 );
-                $ret['msg'] = 'Prefernce Updated';
+                $ret['msg'] = 'Preference Updated';
            }
            else{
                 $qry = $wpdb->prepare(
@@ -1054,7 +1058,7 @@ class CommunicationModule{
                 values(%d,%s,%s)",
                 $user_id,$communication_type,$preference
                 );
-                $ret['msg'] = 'Prefernce Created';
+                $ret['msg'] = 'Preference Created';
            }
            
            $q = $wpdb->query($qry);
