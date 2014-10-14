@@ -38,9 +38,13 @@ function theme_defined_components($ajcm_comp){
                 $ajcm_comp[$component] = array();
             
                 foreach($comm_types as $key => $value){
-                    
-                 if(!array_key_exists($key, $ajcm_comp[$component]))
-                    $ajcm_comp[$component][$key]=$value;
+                 if(is_string($value)){
+                    if(!array_key_exists($value, $ajcm_comp[$component]))
+                       $ajcm_comp[$component][$value]=array();
+                 }else{   
+                    if(!array_key_exists($key, $ajcm_comp[$component]))
+                       $ajcm_comp[$component][$key]=$value;
+                 }
                  
                 }
     }
