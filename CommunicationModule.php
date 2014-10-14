@@ -369,7 +369,8 @@ class CommunicationModule{
                     'id'                  => false,
                     'component'           => '',    
                     'communication_type'  => '',                  
-                    'user_id'             => 0,    
+                    'user_id'             => get_current_user_id(), 
+                    'blog_id'             => get_current_blog_id(),
                     'priority'            => '',
                     'created'             => current_time( 'mysql', true ),
                     'processed'           => ''
@@ -389,6 +390,7 @@ class CommunicationModule{
                                                                     'component' => $component,
                                                                     'communication_type' => $communication_type,
                                                                     'user_id'           => $user_id,
+                                                                    'blog_id'           => $blog_id,
                                                                     'priority'          =>$priority,
                                                                     'created'           =>$created,
                                                                     'processed'         =>$processed
@@ -469,7 +471,6 @@ class CommunicationModule{
             $defaults = array(
                     'id'                  => false,
                     'user_id'             => 0,  
-                    'blog_id'             => get_current_blog_id(),
                     'type'                => '',                  
                     'value'               => '',    
                     'thirdparty_id'       => '',
