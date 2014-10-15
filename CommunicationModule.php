@@ -322,7 +322,7 @@ class CommunicationModule{
          *     @type datetime $processed
          *     }
          * @param array $meta
-         * @param array $recipients_args {
+         * @param array $recipients_args[]{
          *     An array of arguments.
          *     @type int $user_id.
          *     @type string $type (email|phone) 

@@ -54,6 +54,9 @@ if(is_plugin_active('json-rest-api/plugin.php')){
              $routes['/ajcm/emailpreferences/(?P<user_id>\d+)/(?P<component>\w+)/(?P<communication_type>\w+)'] = array(
                 array( array( $this, 'update_user_emailpreference'), WP_JSON_Server::EDITABLE | WP_JSON_Server::ACCEPT_JSON ),
                 ); 
+             $routes['/ajcm/communications'] = array(
+                array( array( $this, 'add_communication'), WP_JSON_Server::CREATABLE | WP_JSON_Server::ACCEPT_JSON ),
+                );             
              $routes['/ajcm/mandrill/templatepreview'] = array(
                 array( array( $this, 'get_template_preview'), WP_JSON_Server::CREATABLE  | WP_JSON_Server::ACCEPT_JSON ),
                 );              
@@ -164,6 +167,23 @@ if(is_plugin_active('json-rest-api/plugin.php')){
             }
             
             
+        }
+        
+        public function add_communication($data){
+            global $aj_comm;
+            
+            $comm_args = $data['comm_args'];
+            $comm_meta = $data['comm_meta'];
+            $comm_recipients = $data['comm_recipients'];
+            
+            $add_comm_response = $aj_comm->create_communication($comm_args,$comm_meta,$comm_recipients);
+            
+            if(!is_wp_error($add_comm_response)){
+                wp_send_json_success(array('comm_id'=>$add_comm_response));
+            }else{
+                $err_msg = $add_comm_response->get_error_message();
+                wp_send_json_error(array('msg'=>$err_msg));
+            }  
         }
             
     }
