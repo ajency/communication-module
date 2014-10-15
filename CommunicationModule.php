@@ -662,7 +662,9 @@ class CommunicationModule{
             $communication_data = array(
                                  'id' => $comm->id,
                                  'component' => $comm->component,
-                                 'communication_type' => $comm->communication_type
+                                 'communication_type' => $comm->communication_type,
+                                 'blog_id'=> $comm->blog_id,
+                                 'user_id'=> $comm->user_id,
                                   );
             return $communication_data;
         }
