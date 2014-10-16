@@ -156,7 +156,8 @@ class CommunicationModule{
                                 `type` varchar(25) NOT NULL,
                                 `value` varchar(25) NOT NULL,
                                 `thirdparty_id` varchar(50) DEFAULT '',
-                                `status` varchar(25) NOT NULL
+                                `status` varchar(25) NOT NULL,
+                                `reject_reason` varchar(25) NOT NULL
                                  );";   
 
                 $email_preferences_tbl=$wpdb->prefix."ajcm_emailpreferences";            
@@ -474,7 +475,8 @@ class CommunicationModule{
                     'type'                => '',                  
                     'value'               => '',    
                     'thirdparty_id'       => '',
-                    'status'              => ''
+                    'status'              => '',
+                    'reject_reason'       => ''
             );
             
             $params = wp_parse_args( $args, $defaults );
@@ -497,7 +499,7 @@ class CommunicationModule{
                 return $recipient_id;
             }else{
                 
-                $q = $wpdb->update($wpdb->ajcm_recipients,array('thirdparty_id'=>$thirdparty_id,'status'=>$status),
+                $q = $wpdb->update($wpdb->ajcm_recipients,array('thirdparty_id'=>$thirdparty_id,'status'=>$status,'reject_reason'=>$reject_reason),
                                             array('id'=>$id));
                          if ( false === $q )
                             return new WP_Error('recipient_update_failed', __('Update Recipient Failed.') );
