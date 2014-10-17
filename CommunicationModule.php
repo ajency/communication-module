@@ -157,7 +157,8 @@ class CommunicationModule{
                                 `value` varchar(25) NOT NULL,
                                 `thirdparty_id` varchar(50) DEFAULT '',
                                 `status` varchar(25) NOT NULL,
-                                `reject_reason` varchar(25) NOT NULL
+                                `reject_reason` varchar(25) NOT NULL,
+                                `to_type` varchar(25) NOT NULL 
                                  );";   
 
                 $email_preferences_tbl=$wpdb->prefix."ajcm_emailpreferences";            
@@ -476,7 +477,8 @@ class CommunicationModule{
                     'value'               => '',    
                     'thirdparty_id'       => '',
                     'status'              => '',
-                    'reject_reason'       => ''
+                    'reject_reason'       => '',
+                    'to_type'             => 'to'
             );
             
             $params = wp_parse_args( $args, $defaults );
@@ -490,7 +492,8 @@ class CommunicationModule{
                                             'type' => $type,
                                             'value' => $value,
                                             'thirdparty_id' => $thirdparty_id,
-                                            'status' => 'linedup'
+                                            'status' => 'linedup',
+                                            'to_type' => $to_type
                                             ));
                         if ( false === $q )
                             return new WP_Error('recipient_add_failed', __('Add Recipient Failed.') );
@@ -829,7 +832,7 @@ class CommunicationModule{
                         $to = array();  
                         $recipients_dbupdate_struct = array();          //array to hold recipients email=>id key value pair
                         foreach($recipients_email as $recipient){ 
-                            $to[] = array('email' => $recipient->value,'name' => '','type'=>'to'); 
+                            $to[] = array('email' => $recipient->value,'name' => '','type'=> $recipient->to_type); 
                             $recipients_dbupdate_struct[$recipient->value] = $recipient->id;
                         }
                     
