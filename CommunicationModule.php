@@ -154,7 +154,7 @@ class CommunicationModule{
                                 `communication_id` int(11) DEFAULT NULL,
                                 `user_id` int(11) DEFAULT '0',
                                 `type` varchar(25) NOT NULL,
-                                `value` varchar(25) NOT NULL,
+                                `value` varchar(50) NOT NULL,
                                 `thirdparty_id` varchar(50) DEFAULT '',
                                 `status` varchar(25) NOT NULL,
                                 `reject_reason` varchar(25) NOT NULL,
