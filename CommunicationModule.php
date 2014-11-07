@@ -879,7 +879,9 @@ class CommunicationModule{
                                                         'to' => $to,
                                                         'metadata' => array('communication_type' => $comm_data['communication_type']),
                                                         'global_merge_vars' =>  $template_data['global_merge_vars'],
-                                                        'merge_vars' => $template_data['merge_vars']
+                                                        'merge_vars' => $template_data['merge_vars'],
+                                                        'attachments' => $template_data['attachments'],
+                                                        'images' => $template_data['images']
                                                      )
                                         );
 
