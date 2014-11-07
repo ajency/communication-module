@@ -36,6 +36,15 @@ class CommunicationModule{
 	 * @var      string
 	 */
 	protected $plugin_slug = "communication-module";
+        
+	/**
+	 * mandrill api call baseurl.
+	 *
+	 * @since    0.1.0
+	 *
+	 * @var      string
+	 */
+        protected $mandrill_apiurl = "http://mandrillapp.com/api/1.0";
 
 	/**
 	 * Instance of this class.
@@ -637,12 +646,14 @@ class CommunicationModule{
         
         /*
          * function to process the communication records 
+         * @param string $component
+         * @param string $comm_type
          */
-        public function cron_process_communication_queue(){
+        public function cron_process_communication_queue($component='',$comm_type=''){
             global $wpdb;
            
            // get all the communications which are needed to be processed 
-           $pending_comms = $this->get_communications('queued');
+           $pending_comms = $this->get_communications('queued',$component,$comm_type);
            
            // loop through the pending communications and call process communication function
            foreach ($pending_comms as $comm){
@@ -678,19 +689,35 @@ class CommunicationModule{
         /*
          * function to get communication records
          * @param string $type
+         * @param string $component
+         * @param string $comm_type
          * 
          * @return object $qry_results $wpdb query results
          * 
          */
-        public function get_communications($type = 'queued'){
+        public function get_communications($type = 'queued',$component='',$comm_type=''){
             global $wpdb;
             
             switch ($type) {
                 case "queued":
+                    $query = "SELECT * FROM $wpdb->ajcm_communications WHERE 1=1";
+                    $args = array();
+                    $query .= " AND processed = %s";
+                    $args[] = '0000-00-00 00:00:00';
+                    
+                    if($component != ''){
+                        $query .= " AND component = %s";
+                        $args[] = $component;
+                    }
+                    
+                    if($comm_type != ''){
+                        $query .= " AND communication_type = %s";
+                        $args[] = $comm_type;
+                    }
+                    
                     $qry_string =  $wpdb->prepare(
-                                    "SELECT * FROM $wpdb->ajcm_communications
-                                        WHERE processed=%s",
-                                    '0000-00-00 00:00:00'
+                                    $query,
+                                    $args
                                     );
                     break;
                 default:
@@ -995,7 +1022,13 @@ class CommunicationModule{
                    $invalid_components[] = $component;
                }               
             }
-           if (!empty($invalid_components)){ ?>
+           
+           if(! $this->valid_mandrill_api_key_exists()){?>
+            <div class="error">
+               <p>Please enter a valid mandrill api key in Communication Module setting. </p>
+           </div>              
+           <?php } 
+           elseif (!empty($invalid_components)){ ?>
            <div class="error">
                <p>Communication Component file not exists for Registered Components->  <strong><?php echo implode(',',$invalid_components); ?></strong> .Please add component file. </p>
            </div>
@@ -1091,6 +1124,46 @@ class CommunicationModule{
                 return true;
            else
                 return false;     
+        }
+        
+        
+         /*
+         * check if valid mandrill api key exists
+         * @param string $key
+         * 
+         * return bool 
+         */       
+        public function valid_mandrill_api_key_exists($key = ''){
+            if($key == ''){
+                $plugin_options = get_option('ajcm_plugin_options');
+                $key = (isset($plugin_options['ajcm_mandrill_key']))? $plugin_options['ajcm_mandrill_key']:'';
+            }
+            
+            if($key == '')
+                return false;
+           
+            $url = $this->mandrill_apiurl.'/users/ping';
+ 
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_HEADER, 0);
+            curl_setopt($ch, CURLOPT_VERBOSE, 0);
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_POST, true);
+            $post = array(
+                'key' => $key
+            );
+           curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
+           curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+           $response = curl_exec($ch);
+           curl_close($ch);
+
+           $resp_decode = json_decode($response,true);
+           if(is_array($resp_decode) && (isset($resp_decode['status']) && $resp_decode['status'] == 'error')){
+               return false;
+           }
+           
+           return true;
+           
         }
         
         

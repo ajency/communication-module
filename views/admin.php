@@ -22,8 +22,11 @@
         //var_dump($ajcm_components);
        
          if (isset($_POST['submit'])){
-             $optionsarray= array();
-
+             $optionsarray= get_option('ajcm_plugin_options');
+             
+             if(!$optionsarray)
+                 $optionsarray = array();
+                 
              $optionsarray['ajcm_mandrill_key'] = $_POST['ajcm_mandrill_key'];
              
              update_option('ajcm_plugin_options', $optionsarray);
