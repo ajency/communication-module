@@ -1168,5 +1168,35 @@ class CommunicationModule{
            
         }
         
-        
+        /*
+         * generate email template preview function 
+         * @param array $data
+         * 
+         * @return array $response
+         */   
+        public function get_template_preview($data){
+            $preview_data = array();
+            $preview_data['template_name'] = (isset($data['template_name']))? $data['template_name']: '';
+            $preview_data['template_content'] = (isset($data['template_content']))? $data['template_content']: array();
+            $preview_data['merge_vars'] = (isset($data['merge_vars']))? $data['merge_vars']: array();
+            
+            $ajcm_plugin_options = get_option('ajcm_plugin_options'); // get the plugin options
+            
+            if(isset($ajcm_plugin_options['ajcm_mandrill_key']) && $ajcm_plugin_options['ajcm_mandrill_key'] != ''){
+                     //create an instance of Mandrill and pass the api key
+                     $mandrill = new Mandrill($ajcm_plugin_options['ajcm_mandrill_key']);
+                     $url = '/templates/render';    //the mandrill api url to call to get the temaplate preview
+                     
+                     $preview_api_call  =  $mandrill->call($url,$preview_data);
+                     
+                     $response  = $preview_api_call;
+
+            }
+            else{
+                $response = array('status' => 'error','message'=>'Mandrill api key not set');
+                wp_send_json_error($response);
+            }
+            
+            return $response;
+        }
 }
