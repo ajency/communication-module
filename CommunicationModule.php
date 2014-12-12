@@ -874,6 +874,7 @@ class CommunicationModule{
                                         'template_content' => $template_content,       // the editable content areas to be replaced in the template
                                         'message' => array(
                                                         'subject' => $template_data['subject'],
+                                                        'headers' => $template_data['headers'],
                                                         'from_email' => $template_data['from_email'],
                                                         'from_name' => $template_data['from_name'],
                                                         'to' => $to,
