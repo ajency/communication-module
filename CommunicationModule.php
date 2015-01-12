@@ -782,8 +782,8 @@ class CommunicationModule{
                 case "linedup":
                     $qry_string =  $wpdb->prepare(
                                     "SELECT * FROM $wpdb->ajcm_recipients
-                                        WHERE communication_id=%d AND status=%s",
-                                    $comm_id,'linedup'
+                                        WHERE communication_id=%d AND status=%s AND user_id NOT IN (%d)",
+                                    $comm_id,'linedup',0
                                   );
                     break;
                 default:
@@ -978,9 +978,9 @@ class CommunicationModule{
             $queued_recipients = $wpdb->get_var( $wpdb->prepare( 
                                     "SELECT count(status) 
                                      FROM $wpdb->ajcm_recipients 
-                                     WHERE communication_id = %d AND status = %s
+                                     WHERE communication_id = %d AND status = %s AND user_id NOT IN( %d )
                                     ", 
-                                    $comm_id,'linedup'
+                                    $comm_id,'linedup',0
                                     ) );
             if($queued_recipients > 0){
                 return true;
