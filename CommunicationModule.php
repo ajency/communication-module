@@ -866,7 +866,7 @@ class CommunicationModule{
                         /*
                          * $template_content an array of dynamic content pairs replacement in template
                          */
-                        $template_content = $template_data['dynamic_content'];
+                        $template_content = isset($template_data['dynamic_content'])? $template_data['dynamic_content'] : array();
 
 
                         $params = array(
@@ -874,15 +874,15 @@ class CommunicationModule{
                                         'template_content' => $template_content,       // the editable content areas to be replaced in the template
                                         'message' => array(
                                                         'subject' => $template_data['subject'],
-                                                        'headers' => $template_data['headers'],
-                                                        'from_email' => $template_data['from_email'],
-                                                        'from_name' => $template_data['from_name'],
+                                                        'headers' => isset($template_data['headers']) ? $template_data['headers'] : array(),
+                                                        'from_email' => isset($template_data['from_email']) ? $template_data['from_email'] : '',
+                                                        'from_name' => isset($template_data['from_name']) ? $template_data['from_name'] : '',
                                                         'to' => $to,
                                                         'metadata' => array('communication_type' => $comm_data['communication_type']),
-                                                        'global_merge_vars' =>  $template_data['global_merge_vars'],
-                                                        'merge_vars' => $template_data['merge_vars'],
-                                                        'attachments' => $template_data['attachments'],
-                                                        'images' => $template_data['images']
+                                                        'global_merge_vars' =>  isset($template_data['global_merge_vars']) ? $template_data['global_merge_vars'] : array(),
+                                                        'merge_vars' => isset($template_data['merge_vars']) ? $template_data['merge_vars'] : array(),
+                                                        'attachments' => isset($template_data['attachments']) ? $template_data['attachments'] : array(),
+                                                        'images' => isset($template_data['images']) ? $template_data['images'] : array()
                                                      )
                                         );
 
@@ -895,7 +895,8 @@ class CommunicationModule{
                                     $args = array(
                                         'id'                  => $recipients_dbupdate_struct[$recipient_response['email']],
                                         'thirdparty_id'       => $recipient_response['_id'],
-                                        'status'              => $recipient_response['status']
+                                        'status'              => $recipient_response['status'],
+                                        'reject_reason'       => $recipient_response['reject_reason']  
                                     );
                             $this->recipient_add($recipient->communication_id,$args); 
                             }
