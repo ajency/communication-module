@@ -96,7 +96,7 @@ class CommunicationModule{
 		add_filter("TODO", array($this, "filter_method_name"));
                 
                 // hook function to be configured in the wp-crontrol plugin settings
-                add_action("ajcm_process_communication_queue", array($this, "cron_process_communication_queue"));
+                add_action("ajcm_process_communication_queue", array($this, "cron_process_communication_queue"),10,2);
                 
                 // hook function to register plugin defined and theme defined components
                 add_action("init", array($this, "register_components"));
