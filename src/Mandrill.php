@@ -17,7 +17,7 @@ require_once 'Mandrill/Senders.php';
 require_once 'Mandrill/Metadata.php';
 require_once 'Mandrill/Exceptions.php';
 
-class Mandrill {
+class AJCOMM_Mandrill {
     
     public $apikey;
     public $ch;

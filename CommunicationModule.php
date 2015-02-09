@@ -847,7 +847,7 @@ class CommunicationModule{
                     
                     if(isset($ajcm_plugin_options['ajcm_mandrill_key']) && $ajcm_plugin_options['ajcm_mandrill_key'] != ''){
                         //create a an instance of Mandrill and pass the api key
-                        $mandrill = new Mandrill($ajcm_plugin_options['ajcm_mandrill_key']);
+                        $mandrill = new AJCOMM_Mandrill($ajcm_plugin_options['ajcm_mandrill_key']);
                         $url = '/messages/send-template';    //the mandrill api url to call to send email
 
                         /* $to an array of recipient information. 
@@ -1186,7 +1186,7 @@ class CommunicationModule{
             
             if(isset($ajcm_plugin_options['ajcm_mandrill_key']) && $ajcm_plugin_options['ajcm_mandrill_key'] != ''){
                      //create an instance of Mandrill and pass the api key
-                     $mandrill = new Mandrill($ajcm_plugin_options['ajcm_mandrill_key']);
+                     $mandrill = new AJCOMM_Mandrill($ajcm_plugin_options['ajcm_mandrill_key']);
                      $url = '/templates/render';    //the mandrill api url to call to get the temaplate preview
                      
                      $preview_api_call  =  $mandrill->call($url,$preview_data);
