@@ -189,8 +189,10 @@ class CommunicationModule{
                                	`modified_by` int(11) DEFAULT '0',
                                	`recipient_roles` longtext,
                                	`sender_customizable` tinyint(1) DEFAULT '0',
-                               	`active` tinyint(1) DEFAULT '1',
+                               	`active` tinyint(1) DEFAULT '1'
                                  );";   
+				
+				_log($email_templates_sql);
 
 
                 //reference to upgrade.php file
@@ -200,6 +202,7 @@ class CommunicationModule{
                 dbDelta($communication_meta_sql);
                 dbDelta($reciepients_sql);
                 dbDelta($email_preferences_sql);
+                dbDelta($email_templates_sql);
 	}
 
 	/**
