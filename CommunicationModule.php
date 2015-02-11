@@ -176,6 +176,20 @@ class CommunicationModule{
                                 `user_id` int(11) DEFAULT '0',
                                 `communication_type` varchar(255) NOT NULL,
                                 `preference` varchar(25) NOT NULL
+                                 );"; 
+
+				$email_templates_tbl=$wpdb->prefix."ajcm_emailtemplates";            
+                $email_templates_sql="CREATE TABLE IF NOT EXISTS `{$email_templates_tbl}` (
+                                `id` int(11) NOT NULL primary key AUTO_INCREMENT,          
+                               	`component` varchar(75) NOT NULL,
+                               	`communication_type` varchar(75) NOT NULL,
+                               	`email_type` varchar(75) NOT NULL,
+                               	`mandrill_template` varchar(255) NOT NULL,
+                               	`created_by` int(11) DEFAULT '0',
+                               	`modified_by` int(11) DEFAULT '0',
+                               	`recipient_roles` longtext,
+                               	`sender_customizable` tinyint(1) DEFAULT '0',
+                               	`active` tinyint(1) DEFAULT '1',
                                  );";   
 
 
