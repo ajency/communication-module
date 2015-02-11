@@ -190,10 +190,7 @@ class CommunicationModule{
                                	`recipient_roles` longtext,
                                	`sender_customizable` tinyint(1) DEFAULT '0',
                                	`active` tinyint(1) DEFAULT '1'
-                                 );";   
-				
-				_log($email_templates_sql);
-
+                                 );"; 
 
                 //reference to upgrade.php file
                 //uses WP dbDelta function inorder to handle addition of new table columns 
