@@ -59,7 +59,10 @@ if(is_plugin_active('json-rest-api/plugin.php')){
                 );             
              $routes['/ajcm/mandrill/templatepreview'] = array(
                 array( array( $this, 'get_template_preview'), WP_JSON_Server::CREATABLE  | WP_JSON_Server::ACCEPT_JSON ),
-                );              
+                );  
+             $routes['/ajcm/emailtemplates'] = array(
+                array( array( $this, 'get_email_templates'), WP_JSON_Server::READABLE ),
+                );            
             return $routes;
         }
         
@@ -162,7 +165,28 @@ if(is_plugin_active('json-rest-api/plugin.php')){
                 wp_send_json_error(array('msg'=>$err_msg));
             }  
         }
-            
-    }
+
+        public function get_email_templates(){
+
+            $response = ajcm_get_email_templates(); 
+
+            if(is_wp_error($response)){
+                $response = new WP_JSON_Response( $response );
+                $response->set_status(404);
+
+            }
+            else
+            {
+                if ( ! ( $response instanceof WP_JSON_ResponseInterface ) ) {
+                    $response = new WP_JSON_Response( $response );
+                }
+                $response->set_status( 200 );
+            } 
+
+            return $response; 
+        }
+
+
+        }
 
 }
