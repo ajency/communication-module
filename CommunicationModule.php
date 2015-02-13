@@ -178,7 +178,8 @@ class CommunicationModule{
                                 `preference` varchar(25) NOT NULL
                                  );"; 
 
-				$email_templates_tbl=$wpdb->prefix."ajcm_emailtemplates";            
+				$email_templates_tbl=$wpdb->prefix."ajcm_emailtemplates"; 
+				echo $email_templates_sql;           
                 $email_templates_sql="CREATE TABLE IF NOT EXISTS `{$email_templates_tbl}` (
                                 `id` int(11) NOT NULL primary key AUTO_INCREMENT,          
                                	`component` varchar(75) NOT NULL,
@@ -187,9 +188,11 @@ class CommunicationModule{
                                	`mandrill_template` varchar(255) NOT NULL,
                                	`created_by` int(11) DEFAULT '0',
                                	`modified_by` int(11) DEFAULT '0',
+                               	`created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+                               	`modified_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                                	`recipient_roles` longtext,
                                	`sender_customizable` tinyint(1) DEFAULT '0',
-                               	`active` tinyint(1) DEFAULT '1'
+                               	`status` ENUM('active','archived') DEFAULT 'active'
                                  );"; 
 
                 //reference to upgrade.php file
