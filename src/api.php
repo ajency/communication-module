@@ -62,6 +62,7 @@ if(is_plugin_active('json-rest-api/plugin.php')){
                 );  
              $routes['/ajcm/emailtemplates'] = array(
                 array( array( $this, 'get_email_templates'), WP_JSON_Server::READABLE ),
+                array( array( $this, 'create_email_template'), WP_JSON_Server::CREATABLE | WP_JSON_Server::ACCEPT_JSON ),
                 );            
             return $routes;
         }
@@ -181,6 +182,34 @@ if(is_plugin_active('json-rest-api/plugin.php')){
                     $response = new WP_JSON_Response( $response );
                 }
                 $response->set_status( 200 );
+            } 
+
+            return $response; 
+        }
+
+        public function create_email_template($data){
+            $response = ajcm_create_email_template($data);
+
+            if(is_wp_error($response)){
+                if($response->get_error_code()=='json_missing_arguments')
+                    $status = 400;
+                else
+                    $status = 404;
+                
+
+                $response_data = array('code' => $response->get_error_code(),'message' => $response->get_error_message());
+                
+                $response = new WP_JSON_Response( $response );
+
+                $response->set_data( array($response_data ));
+                $response->set_status($status);
+
+            }
+            else
+            {
+                if ( ! ( $response instanceof WP_JSON_ResponseInterface ) ) {
+                    $response = new WP_JSON_Response( $response, 201 );
+                }
             } 
 
             return $response; 
