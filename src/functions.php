@@ -11,6 +11,7 @@ function ajcm_get_email_template_by_id($email_template_id, $template_args=""){
 	$query_result_row =$wpdb->get_row($query_string,ARRAY_A);
 
 	if ($query_result_row){
+		$query_result_row['recipient_roles'] = maybe_unserialize( $query_result_row['recipient_roles'] );
 		return $query_result_row;
 	}  
 	else{
@@ -24,16 +25,25 @@ function ajcm_get_email_templates(){
 
 	$table = $wpdb->prefix.'ajcm_emailtemplates';
 
-	$query = "SELECT * FROM $table WHERE status=%s";
+	$query = "SELECT * FROM $table";
 
-	$status = 'active';
+	// $status = 'active';
 
 	$query_string =  $wpdb->prepare( $query, $status);
 
 	$query_results=$wpdb->get_results($query_string,ARRAY_A);
 
 	if ($query_results){
-		return $query_results;
+
+		foreach ($query_results as $key => $query_result) {
+			$created_by_user= get_user_by( 'id', $query_result['created_by'] );
+			$query_results[$key]['created_by_name']  = $created_by_user->display_name ;
+
+			$modified_by_user= get_user_by( 'id', $query_result['modified_by'] );
+			$query_results[$key]['modified_by_name'] = $modified_by_user->display_name;
+		}
+
+		return array('data' => $query_results);
 	}  
 	else{
 		return new WP_Error( 'json_not_found', __( 'Email templates not found' ));
@@ -104,5 +114,119 @@ function ajcm_create_email_template($args){
 
 	return $response;
 
+}
+
+function ajcm_update_email_template($args){
+	global $wpdb;
+
+	if (!isset($args['component'])||!isset($args['communication_type'])||!isset($args['email_type'])||!isset($args['mandrill_template']) ||!isset($args['recipient_roles'])) {
+		return new WP_Error( 'json_missing_arguments', __( 'Specify all mandatory arguments' ));
+	}
+
+	if (sizeof($args['recipient_roles'])<1) {
+		return new WP_Error( 'json_missing_arguments', __( 'Specify email recepients' ));
+	}
+
+	if (isset($args['status']) && $args['status'] === true ) {
+		$args['status'] = 'active';
+	}else{
+		$args['status'] = 'archived';
+	}
+
+	$table = $wpdb->prefix.'ajcm_emailtemplates';
+
+	$defaults = array(
+		'modified_by'             => get_current_user_id(),
+		'sender_customizable'    => 0,
+		'status' 				=> 'active',
+		);
+	$params = wp_parse_args( $args, $defaults );
+	
+	extract( $params, EXTR_SKIP );
+
+	$update_query = $wpdb->update( 
+		$table, 
+		array(
+		'component' => $component,
+		'communication_type' => $communication_type,
+		'email_type'           => $email_type,
+		'mandrill_template'           => $mandrill_template,
+		'created_by'          =>$created_by,
+		'modified_by'           =>$modified_by,
+		'recipient_roles'           =>maybe_serialize($recipient_roles),
+		'sender_customizable'           =>$sender_customizable,
+		'status'         =>$status
+		), 
+		array( 'id' => $id )
+	);	
+
+	if ( false === $update_query )
+		return new WP_Error('emailtemplate_update_failed', __('Failed to update email template') );
+
+	$template_args = array('status' => $status );
+	$email_template_data = ajcm_get_email_template_by_id($id,$template_args);
+	
+	if(is_wp_error($email_template_data)){
+		return $email_template_data;
+	}
+	$email_template_data['recipient_roles'] = maybe_unserialize( $email_template_data['recipient_roles'] );
+
+	$response['code'] = 'email_template_updated';
+	$response['message'] = __('Email template updated');
+	$response['data'] = $email_template_data;
+
+	return $response;
+}
+
+
+function ajcm_get_mandrill_templates($label='',$mail_api = 'mandrill'){
+
+	switch ($mail_api) {
+		case "mandrill":
+        	$ajcm_plugin_options = get_option('ajcm_plugin_options'); // get the plugin options
+        	$all_mandrill_templates = array();
+
+        	if(isset($ajcm_plugin_options['ajcm_mandrill_key']) && $ajcm_plugin_options['ajcm_mandrill_key'] != ''){
+                //create a an instance of Mandrill and pass the api key
+        		$mandrill = new AJCOMM_Mandrill($ajcm_plugin_options['ajcm_mandrill_key']);
+        		$url = '/templates/list';
+
+        		if ($label!=='') {
+        			$params = array('label' => $label );
+        			$responseTemplates  =  $mandrill->call($url,$params);
+        		}else{
+        			$responseTemplates  =  $mandrill->call($url);
+        		}
+        		if (isset($responseTemplates['status']) && $responseTemplates['status']!=="error") {
+	        		return new WP_Error( $responseTemplates['name'], __( $responseTemplates['message'] ));
+        		}
+        		else{
+        			
+        			foreach ($responseTemplates as $key => $responseTemplate) {
+	        			$all_mandrill_templates[] =  array('slug' => $responseTemplate['slug'], 'name'=>$responseTemplate['name'], 'created_at'=>$responseTemplate['created_at'],'updated_at'=>$responseTemplate['updated_at'] );
+	        		}
+
+	        		return array('data' =>$all_mandrill_templates );
+        		}
+
+        		
+        	}
+        	break;
+		default:
+		    break;
+	}
+}
+
+
+if(!function_exists('_log')){
+    function _log( $message ) {
+        if( WP_DEBUG === true ){
+            if( is_array( $message ) || is_object( $message ) ){
+                error_log( print_r( $message, true ) );
+            } else {
+                error_log( $message );
+            }
+        }
+    }
 }
 

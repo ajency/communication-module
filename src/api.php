@@ -63,6 +63,14 @@ if(is_plugin_active('json-rest-api/plugin.php')){
              $routes['/ajcm/emailtemplates'] = array(
                 array( array( $this, 'get_email_templates'), WP_JSON_Server::READABLE ),
                 array( array( $this, 'create_email_template'), WP_JSON_Server::CREATABLE | WP_JSON_Server::ACCEPT_JSON ),
+                ); 
+             $routes['/ajcm/emailtemplates/(?P<email_template_id>\d+)'] = array(
+                array(array($this, 'get_email_template'), \WP_JSON_Server::READABLE),
+                array(array($this, 'delete_email_templates'), \WP_JSON_Server::DELETABLE),
+                array(array($this, 'update_email_template'), \WP_JSON_Server::EDITABLE | WP_JSON_Server::ACCEPT_JSON)
+                );
+             $routes['/ajcm/mandrilltemplates'] = array(
+                array( array( $this, 'get_mandrill_templates'), WP_JSON_Server::READABLE ),
                 );            
             return $routes;
         }
@@ -172,7 +180,9 @@ if(is_plugin_active('json-rest-api/plugin.php')){
             $response = ajcm_get_email_templates(); 
 
             if(is_wp_error($response)){
+                $response_data = array('code' => $response->get_error_code(),'message' => $response->get_error_message());
                 $response = new WP_JSON_Response( $response );
+                $response->set_data( array($response_data ));
                 $response->set_status(404);
 
             }
@@ -182,6 +192,57 @@ if(is_plugin_active('json-rest-api/plugin.php')){
                     $response = new WP_JSON_Response( $response );
                 }
                 $response->set_status( 200 );
+            } 
+
+            return $response; 
+        }
+
+        public function get_email_template($email_template_id){
+
+            $response = ajcm_get_email_template_by_id($email_template_id); 
+
+            if(is_wp_error($response)){
+                $response_data = array('code' => $response->get_error_code(),'message' => $response->get_error_message());
+                $response = new WP_JSON_Response( $response );
+                $response->set_data( array($response_data ));
+                $response->set_status(404);
+
+            }
+            else
+            {
+                $response =  array('data' => $response );
+                if ( ! ( $response instanceof WP_JSON_ResponseInterface ) ) {
+                    $response = new WP_JSON_Response( $response );
+                }
+                $response->set_status( 200 );
+            } 
+
+            return $response; 
+        }  
+
+        public function update_email_template($data){
+            $response = ajcm_update_email_template($data);
+
+            if(is_wp_error($response)){
+                if($response->get_error_code()=='json_missing_arguments')
+                    $status = 400;
+                else
+                    $status = 404;
+                
+
+                $response_data = array('code' => $response->get_error_code(),'message' => $response->get_error_message());
+                
+                $response = new WP_JSON_Response( $response );
+
+                $response->set_data( array($response_data ));
+                $response->set_status($status);
+
+            }
+            else
+            {
+                if ( ! ( $response instanceof WP_JSON_ResponseInterface ) ) {
+                    $response = new WP_JSON_Response( $response, 201);
+                }
             } 
 
             return $response; 
@@ -208,8 +269,29 @@ if(is_plugin_active('json-rest-api/plugin.php')){
             else
             {
                 if ( ! ( $response instanceof WP_JSON_ResponseInterface ) ) {
-                    $response = new WP_JSON_Response( $response, 201 );
+                    $response = new WP_JSON_Response( $response, 202 );
                 }
+            } 
+
+            return $response; 
+        }        
+
+        public function get_mandrill_templates($label=array()){
+            $response = ajcm_get_mandrill_templates($label); 
+
+            if(is_wp_error($response)){
+                $response_data = array('code' => $response->get_error_code(),'message' => $response->get_error_message());
+                $response = new WP_JSON_Response( $response );
+                $response->set_data( array($response_data ));
+                $response->set_status(400 );
+
+            }
+            else
+            {
+                if ( ! ( $response instanceof WP_JSON_ResponseInterface ) ) {
+                    $response = new WP_JSON_Response( $response );
+                }
+                $response->set_status( 200 );
             } 
 
             return $response; 
