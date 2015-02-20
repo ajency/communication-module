@@ -53,3 +53,16 @@ function theme_defined_components($ajcm_comp){
     
 }
 add_filter('ajcm_communication_component_filter','theme_defined_components',10,1);
+
+
+function register_comm_email_types($email_types){
+    global $ajcm_email_types;
+
+    $ajcm_email_types = apply_filters('ajcm_email_types_filter',$email_types);
+}
+
+function theme_defined_email_types($email_types){
+    $defined_email_types = apply_filters('add_email_type_filter',$email_types);
+    return $defined_email_types;
+}
+add_filter('ajcm_email_types_filter','theme_defined_email_types',10,1);
