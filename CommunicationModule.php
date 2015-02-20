@@ -100,6 +100,9 @@ class CommunicationModule{
                 
                 // hook function to register plugin defined and theme defined components
                 add_action("init", array($this, "register_components"));
+
+                // hook function to register plugin defined email types
+                add_action("init", array($this, "register_email_types"));
                 
                 // hook function to check if defined components have component specific file  
                 add_action("admin_notices", array($this, "add_plugin_dashboard_notices") );
@@ -142,6 +145,7 @@ class CommunicationModule{
                                `id` int(11) NOT NULL primary key AUTO_INCREMENT,           
                                `component` varchar(75) NOT NULL,
                                `communication_type` varchar(75) NOT NULL,
+                               `email_template_id` INT(11) NOT NULL DEFAULT '0',
                                `user_id` int(11) DEFAULT '0',
                                `blog_id` int(11) NOT NULL DEFAULT '0',
                                `priority` varchar(25) NOT NULL,
@@ -359,9 +363,28 @@ class CommunicationModule{
          * 
          * @return int|false|WP_Error comm_id on successful add. WP_Error on insert error.
          */
-        public function create_communication($args = '',$meta = array(),$recipients_args=''){
+        public function create_communication($args = '',$meta = array(),$recipients_args='',$role_based_recepients=FALSE){
             $comm_id = $this->communication_add($args,$meta);
             
+            // if $role_based_recepients is set to TRUE then append role based recipients to the the recipient args before making entry
+
+           
+            if ($role_based_recepients) {
+            	$recipients_args =  array();
+            	$email_template_data = $this->get_email_template_by_id($args['email_template_id']);
+
+            	foreach ($email_template_data['recipient_ids'] as $recipient_user_id) {
+            		$recipient_user = get_user_by( 'id', $recipient_user_id );
+            		$recipients_args[] =  array(
+				                                'user_id' => $recipient_user_id,
+				                                'type' => 'email',
+				                                'value' => $recipient_user->user_email,
+				                                'status' => 'linedup'
+				                            );
+            	}
+            }
+            // $email_template_data = ajcm_get_email_template_data($args);
+            // $recipients_args = ajcm_get_recipients_based_on_roles($args);
             // if communication id is added add communication recipients
             if($comm_id && !is_wp_error($comm_id)){
                 foreach($recipients_args as $recipient_data){
@@ -370,6 +393,70 @@ class CommunicationModule{
             }
 
             return $comm_id;
+
+        }
+        public function create_template_based_communications($comm_data = '',$meta = array(),$recipients_args='',$role_based_recipients=TRUE){
+        		global $ajcm_components, $ajcm_email_types, $wpdb;
+
+        		$communication_ids = array();
+
+        		// initialise count to 1 (so by default create atleast one communication)
+        		$count_of_communication_creation = 1;
+
+        		$component = $comm_data['component'];
+        		$communication_type = $comm_data['communication_type'];
+        		
+        		$table = $wpdb->prefix.'ajcm_emailtemplates';
+
+        		$query =  "SELECT * FROM $table WHERE component = %s AND communication_type = %s AND status=%s";
+
+        		$query_string =  $wpdb->prepare( $query, $component, $communication_type , 'active' );
+        		_log($query_string);
+
+        		$query_results = $wpdb->get_results($query_string,ARRAY_A);
+
+        		_log($query_results);
+
+        		foreach ($query_results as $query_result) {
+        			$new_comm_data = array('component' => $component, 'communication_type' =>$communication_type , 'email_template_id'=>$query_result['id'] );
+        			_log($new_comm_data);
+        			$communication_ids[] = $this->create_communication($new_comm_data, $meta,  $recipients_args,$role_based_recipients);
+
+        		}
+        		return $communication_ids;
+        }
+
+        public function get_email_template_by_id($email_template_id){
+        	
+        	$email_template_data = ajcm_get_email_template_by_id($email_template_id);
+
+        	if (!is_wp_error($email_template_data)){
+        		$mandrill_template = $email_template_data['mandrill_template'];
+        		$recipient_roles = maybe_unserialize( $email_template_data['recipient_roles'] );
+        		$all_recipient_ids = array();
+        		// print_r($recipient_roles);
+
+        		foreach ($recipient_roles as $recipient_role) {
+        			$user_role = $recipient_role['role'];
+        			$user_related_rule = $recipient_role['rule'];
+
+        			$all_users_by_role = get_users( array('role' =>$user_role, 'fields'=>array('ID') ) );
+
+        			// echo sizeof($all_users_by_role);
+        			// print_r($all_users_by_role);
+
+        			foreach ($all_users_by_role as $user_by_role) {
+        				$all_recipient_ids[] = $user_by_role->ID;
+        			}
+        		}
+        		$email_template_data['recipient_ids'] = $all_recipient_ids;
+        	} 
+        	else{
+        		$email_template_data = array('recipient_ids'=>array());
+        	}
+
+        	return $email_template_data;
+
 
         }
         
@@ -394,7 +481,8 @@ class CommunicationModule{
             $defaults = array(
                     'id'                  => false,
                     'component'           => '',    
-                    'communication_type'  => '',                  
+                    'communication_type'  => '',                
+                    'email_template_id'  => 0,                
                     'user_id'             => get_current_user_id(), 
                     'blog_id'             => get_current_blog_id(),
                     'priority'            => '',
@@ -402,6 +490,7 @@ class CommunicationModule{
                     'processed'           => ''
             );
             $params = wp_parse_args( $args, $defaults );
+            _log($params);
             extract( $params, EXTR_SKIP );
             
             //check if component and communication type is registered
@@ -415,6 +504,7 @@ class CommunicationModule{
                 $q = $wpdb->insert( $wpdb->ajcm_communications, array(
                                                                     'component' => $component,
                                                                     'communication_type' => $communication_type,
+                                                                    'email_template_id' => $email_template_id,
                                                                     'user_id'           => $user_id,
                                                                     'blog_id'           => $blog_id,
                                                                     'priority'          =>$priority,
@@ -694,6 +784,7 @@ class CommunicationModule{
                                  'id' => $comm->id,
                                  'component' => $comm->component,
                                  'communication_type' => $comm->communication_type,
+                                 'email_template_id' => $comm->email_template_id,
                                  'blog_id'=> $comm->blog_id,
                                  'user_id'=> $comm->user_id,
                                   );
@@ -1016,6 +1107,11 @@ class CommunicationModule{
                                     'registration'=>$preferences,
                                     'activation'=>$preferences);
             register_comm_component($component_name,$component_type);
+        }
+
+        public function register_email_types(){
+        	$email_types =  array('notification','actor','actee','time_based' );
+        	register_comm_email_types($email_types);
         }
         
         /*
