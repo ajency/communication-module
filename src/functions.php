@@ -33,21 +33,16 @@ function ajcm_get_email_templates(){
 
 	$query_results=$wpdb->get_results($query_string,ARRAY_A);
 
-	if ($query_results){
+	foreach ($query_results as $key => $query_result) {
+		$created_by_user= get_user_by( 'id', $query_result['created_by'] );
+		$query_results[$key]['created_by_name']  = $created_by_user->display_name ;
 
-		foreach ($query_results as $key => $query_result) {
-			$created_by_user= get_user_by( 'id', $query_result['created_by'] );
-			$query_results[$key]['created_by_name']  = $created_by_user->display_name ;
+		$modified_by_user= get_user_by( 'id', $query_result['modified_by'] );
+		$query_results[$key]['modified_by_name'] = $modified_by_user->display_name;
+	}
 
-			$modified_by_user= get_user_by( 'id', $query_result['modified_by'] );
-			$query_results[$key]['modified_by_name'] = $modified_by_user->display_name;
-		}
 
-		return array('data' => $query_results);
-	}  
-	else{
-		return new WP_Error( 'json_not_found', __( 'Email templates not found' ));
-	} 
+	return array('data' => $query_results);
 }
 
 function ajcm_create_email_template($args){

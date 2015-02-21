@@ -252,11 +252,7 @@ if(is_plugin_active('json-rest-api/plugin.php')){
             $response = ajcm_create_email_template($data);
 
             if(is_wp_error($response)){
-                if($response->get_error_code()=='json_missing_arguments')
-                    $status = 400;
-                else
-                    $status = 404;
-                
+                $status = 400;
 
                 $response_data = array('code' => $response->get_error_code(),'message' => $response->get_error_message());
                 
