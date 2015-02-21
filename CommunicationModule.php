@@ -373,15 +373,28 @@ class CommunicationModule{
             	$recipients_args =  array();
             	$email_template_data = $this->get_email_template_by_id($args['email_template_id']);
 
-            	foreach ($email_template_data['recipient_ids'] as $recipient_user_id) {
-            		$recipient_user = get_user_by( 'id', $recipient_user_id );
-            		$recipients_args[] =  array(
-				                                'user_id' => $recipient_user_id,
-				                                'type' => 'email',
-				                                'value' => $recipient_user->user_email,
-				                                'status' => 'linedup'
-				                            );
-            	}
+                // Filter recipient ids based on rule and meta by using a theme function
+                $role_based_recipients = $email_template_data['recipient_ids'];
+                $function_name = 'ajcm_get_theme_rule_based_users';
+
+                _log($role_based_recipients);
+
+                if (function_exists($function_name)) {
+                	$rule_based_recipients = $function_name($role_based_recipients,$args,$meta);
+                }
+                else{
+                	$rule_based_recipients = $role_based_recipients;
+                }
+
+                foreach ($rule_based_recipients as $rule_based_recipient_user) {
+                	$recipient_user = get_user_by( 'id', $rule_based_recipient_user['user_id'] );
+                	$recipients_args[] =  array(
+                	                                'user_id' => $rule_based_recipient_user['user_id'],
+                	                                'type' => 'email',
+                	                                'value' => $recipient_user->user_email,
+                	                                'status' => 'linedup'
+                	                            );
+                }
             }
             // $email_template_data = ajcm_get_email_template_data($args);
             // $recipients_args = ajcm_get_recipients_based_on_roles($args);
@@ -761,14 +774,24 @@ class CommunicationModule{
            $pending_comms = $this->get_communications('queued',$component,$comm_type);
            
            // loop through the pending communications and call process communication function
+            
            foreach ($pending_comms as $comm){
                $comm_data  = $this->get_communication_data($comm);
-               $this->procces_communication($comm_data);
                
-               //if communication does not have linedup recipients update communication processed date
-               if(! $this->has_recipients_linedup($comm->id)){
-                $this->mark_communication_processed($comm->id);
-               }
+               // Process only those communications that have email_template_id=0(i.e. do not have an email template associated to it) or if they do have an email template associated to it then it should be an active email template
+	           $email_template_data = $this->get_email_template_by_id($comm_data['email_template_id']);
+	           if (($comm_data['email_template_id']==0) || ($email_template_data['status']==='active')) {
+               		$this->procces_communication($comm_data);
+               
+	               //if communication does not have linedup recipients update communication processed date
+	               if(! $this->has_recipients_linedup($comm->id)){
+	                $this->mark_communication_processed($comm->id);
+	               }
+	            }
+	            else{
+	            	// Those that do not have an active email id or email_template_id is 0, mark them as processed
+	            	$this->mark_communication_processed($comm->id);
+	            }
            }
            
         }
