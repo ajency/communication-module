@@ -29,9 +29,9 @@ function ajcm_get_email_templates(){
 
 	// $status = 'active';
 
-	$query_string =  $wpdb->prepare( $query, $status);
+	// $query_string =  $wpdb->prepare( $query );
 
-	$query_results=$wpdb->get_results($query_string,ARRAY_A);
+	$query_results=$wpdb->get_results($query,ARRAY_A);
 
 	foreach ($query_results as $key => $query_result) {
 		$created_by_user= get_user_by( 'id', $query_result['created_by'] );
@@ -39,6 +39,8 @@ function ajcm_get_email_templates(){
 
 		$modified_by_user= get_user_by( 'id', $query_result['modified_by'] );
 		$query_results[$key]['modified_by_name'] = $modified_by_user->display_name;
+
+		$query_results[$key]['recipient_roles'] = maybe_unserialize( $query_result['recipient_roles'] );
 	}
 
 
