@@ -374,13 +374,11 @@ class CommunicationModule{
             	$email_template_data = $this->get_email_template_by_id($args['email_template_id']);
 
                 // Filter recipient ids based on rule and meta by using a theme function
-                $role_based_recipients = $email_template_data['recipient_ids'];
+                
                 $function_name = 'ajcm_get_theme_rule_based_users';
 
-                _log($role_based_recipients);
-
                 if (function_exists($function_name)) {
-                	$rule_based_recipients = $function_name($role_based_recipients,$args,$meta);
+                	$rule_based_recipients = $function_name($args,$meta);
                 }
                 else{
                 	$rule_based_recipients = $role_based_recipients;
@@ -442,31 +440,6 @@ class CommunicationModule{
         public function get_email_template_by_id($email_template_id){
         	
         	$email_template_data = ajcm_get_email_template_by_id($email_template_id);
-
-        	if (!is_wp_error($email_template_data)){
-        		$mandrill_template = $email_template_data['mandrill_template'];
-        		$recipient_roles = maybe_unserialize( $email_template_data['recipient_roles'] );
-        		$all_recipient_ids = array();
-        		// print_r($recipient_roles);
-
-        		foreach ($recipient_roles as $recipient_role) {
-        			$user_role = $recipient_role['role'];
-        			$user_related_rule = $recipient_role['rule'];
-
-        			$all_users_by_role = get_users( array('role' =>$user_role, 'fields'=>array('ID') ) );
-
-        			// echo sizeof($all_users_by_role);
-        			// print_r($all_users_by_role);
-
-        			foreach ($all_users_by_role as $user_by_role) {
-        				$all_recipient_ids[] = $user_by_role->ID;
-        			}
-        		}
-        		$email_template_data['recipient_ids'] = $all_recipient_ids;
-        	} 
-        	else{
-        		$email_template_data = array('recipient_ids'=>array());
-        	}
 
         	return $email_template_data;
 
