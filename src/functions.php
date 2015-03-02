@@ -66,6 +66,9 @@ function ajcm_create_email_template($args){
 
 	$table = $wpdb->prefix.'ajcm_emailtemplates';
 
+	//@todo set to whichever timezone later
+	date_default_timezone_set('Asia/Kolkata');
+	
 	$defaults = array(
 		'component'           => '',    
 		'communication_type'  => '',                  
@@ -74,6 +77,7 @@ function ajcm_create_email_template($args){
 		'created_by'             => get_current_user_id(),
 		'modified_by'             => get_current_user_id(),
 		'sender_customizable'    => 0,
+		'created_at'    => date('Y-m-d h:i:s a', time()),
 		'status' 				=> 'active',
 		);
 	$params = wp_parse_args( $args, $defaults );
@@ -87,6 +91,7 @@ function ajcm_create_email_template($args){
 		'mandrill_template'           => $mandrill_template,
 		'created_by'          =>$created_by,
 		'modified_by'           =>$modified_by,
+		'created_at'           =>$created_at,
 		'recipient_roles'           =>maybe_serialize($recipient_roles),
 		'sender_customizable'           =>$sender_customizable,
 		'status'         =>$status
