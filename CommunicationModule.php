@@ -397,6 +397,7 @@ class CommunicationModule{
             // $email_template_data = ajcm_get_email_template_data($args);
             // $recipients_args = ajcm_get_recipients_based_on_roles($args);
             // if communication id is added add communication recipients
+
             if($comm_id && !is_wp_error($comm_id)){
                 foreach($recipients_args as $recipient_data){
                     $recipient_added = $this->recipient_add($comm_id,$recipient_data);
@@ -422,15 +423,13 @@ class CommunicationModule{
         		$query =  "SELECT * FROM $table WHERE component = %s AND communication_type = %s AND status=%s";
 
         		$query_string =  $wpdb->prepare( $query, $component, $communication_type , 'active' );
-        		_log($query_string);
-
+        		
         		$query_results = $wpdb->get_results($query_string,ARRAY_A);
 
-        		_log($query_results);
 
         		foreach ($query_results as $query_result) {
         			$new_comm_data = array('component' => $component, 'communication_type' =>$communication_type , 'email_template_id'=>$query_result['id'] );
-        			_log($new_comm_data);
+        			
         			$communication_ids[] = $this->create_communication($new_comm_data, $meta,  $recipients_args,$role_based_recipients);
 
         		}
@@ -476,7 +475,7 @@ class CommunicationModule{
                     'processed'           => ''
             );
             $params = wp_parse_args( $args, $defaults );
-            _log($params);
+            
             extract( $params, EXTR_SKIP );
             
             //check if component and communication type is registered
