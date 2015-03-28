@@ -183,14 +183,16 @@ class CommunicationModule{
                                 `preference` varchar(25) NOT NULL
                                  );"; 
 
-				$email_templates_tbl=$wpdb->prefix."ajcm_emailtemplates"; 
+				$templates_tbl=$wpdb->prefix."ajcm_templates"; 
 
-                $email_templates_sql="CREATE TABLE IF NOT EXISTS `{$email_templates_tbl}` (
+                $templates_sql="CREATE TABLE IF NOT EXISTS `{$templates_tbl}` (
                                 `id` int(11) NOT NULL primary key AUTO_INCREMENT,          
+                                `template_type` ENUM('email','document') DEFAULT 'email',     
                                	`component` varchar(75) NOT NULL,
                                	`communication_type` varchar(75) NOT NULL,
                                	`email_type` varchar(75) NOT NULL,
-                               	`mandrill_template` varchar(255) NOT NULL,
+                                `vendor_template_src` ENUM('mandrill','google_drive') DEFAULT 'mandrill' ,
+                               	`vendor_template_id` varchar(255) NOT NULL,
                                	`created_by` int(11) DEFAULT '0',
                                	`modified_by` int(11) DEFAULT '0',
 								`created_at` datetime DEFAULT NULL,
@@ -207,7 +209,7 @@ class CommunicationModule{
                 dbDelta($communication_meta_sql);
                 dbDelta($reciepients_sql);
                 dbDelta($email_preferences_sql);
-                dbDelta($email_templates_sql);
+                dbDelta($templates_sql);
 	}
 
 	/**
@@ -419,7 +421,7 @@ class CommunicationModule{
         		$component = $comm_data['component'];
         		$communication_type = $comm_data['communication_type'];
         		
-        		$table = $wpdb->prefix.'ajcm_emailtemplates';
+        		$table = $wpdb->prefix.'ajcm_templates';
 
         		$query =  "SELECT * FROM $table WHERE component = %s AND communication_type = %s AND status=%s";
 

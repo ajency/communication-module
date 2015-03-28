@@ -2,7 +2,7 @@
 function ajcm_get_email_template_by_id($email_template_id, $template_args=""){
 	global $wpdb;
 	
-	$table = $wpdb->prefix.'ajcm_emailtemplates';
+	$table = $wpdb->prefix.'ajcm_templates';
 
 	$query = "SELECT * FROM $table WHERE id=%d";
 
@@ -23,7 +23,7 @@ function ajcm_get_email_templates(){
 
 	global $wpdb;
 
-	$table = $wpdb->prefix.'ajcm_emailtemplates';
+	$table = $wpdb->prefix.'ajcm_templates';
 
 	$query = "SELECT * FROM $table";
 
@@ -64,7 +64,7 @@ function ajcm_create_email_template($args){
 		$args['status'] = 'archived';
 	}
 
-	$table = $wpdb->prefix.'ajcm_emailtemplates';
+	$table = $wpdb->prefix.'ajcm_templates';
 
 	//@todo set to whichever timezone later
 	date_default_timezone_set('Asia/Kolkata');
@@ -73,7 +73,7 @@ function ajcm_create_email_template($args){
 		'component'           => '',    
 		'communication_type'  => '',                  
 		'email_type'             => '', 
-		'mandrill_template'       => '',
+		'vendor_template_id'       => '',
 		'created_by'             => get_current_user_id(),
 		'modified_by'             => get_current_user_id(),
 		'sender_customizable'    => 0,
@@ -88,7 +88,7 @@ function ajcm_create_email_template($args){
 		'component' => $component,
 		'communication_type' => $communication_type,
 		'email_type'           => $email_type,
-		'mandrill_template'           => $mandrill_template,
+		'vendor_template_id'           => $mandrill_template,
 		'created_by'          =>$created_by,
 		'modified_by'           =>$modified_by,
 		'created_at'           =>$created_at,
@@ -135,7 +135,7 @@ function ajcm_update_email_template($args){
 		$args['status'] = 'archived';
 	}
 
-	$table = $wpdb->prefix.'ajcm_emailtemplates';
+	$table = $wpdb->prefix.'ajcm_templates';
 
 	$defaults = array(
 		'modified_by'             => get_current_user_id(),
@@ -152,7 +152,7 @@ function ajcm_update_email_template($args){
 		'component' => $component,
 		'communication_type' => $communication_type,
 		'email_type'           => $email_type,
-		'mandrill_template'           => $mandrill_template,
+		'vendor_template_id'           => $mandrill_template,
 		'created_by'          =>$created_by,
 		'modified_by'           =>$modified_by,
 		'recipient_roles'           =>maybe_serialize($recipient_roles),
