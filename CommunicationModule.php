@@ -100,6 +100,7 @@ class CommunicationModule{
                 
                 // hook function to register plugin defined and theme defined components
                 add_action("init", array($this, "register_components"));
+                add_action("init", array($this, "register_document_components"));
 
                 // hook function to register plugin defined email types
                 add_action("init", array($this, "register_email_types"));
@@ -1108,7 +1109,16 @@ class CommunicationModule{
         	$email_types =  array('notification','actor','actee','time_based' );
         	register_comm_email_types($email_types);
         }
-        
+
+        /*
+        * function to register the document components and their types
+        */       
+        public function register_document_components(){
+            $component_name = '';
+            $component_type = array();
+            register_doc_components($component_name,$component_type);
+        }
+
         /*
          * function to display notice if registered component do not have component specific file in plugin directory or theme directory
          */
