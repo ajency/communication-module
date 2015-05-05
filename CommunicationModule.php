@@ -388,11 +388,10 @@ class CommunicationModule{
                 }
 
                 foreach ($rule_based_recipients as $rule_based_recipient_user) {
-                	$recipient_user = get_user_by( 'id', $rule_based_recipient_user['user_id'] );
                 	$recipients_args[] =  array(
-                	                                'user_id' => $rule_based_recipient_user['user_id'],
+                	                                'user_id' => $rule_based_recipient_user['ID'],
                 	                                'type' => 'email',
-                	                                'value' => $recipient_user->user_email,
+                	                                'value' => $rule_based_recipient_user['email'],
                 	                                'status' => 'linedup'
                 	                            );
                 }
@@ -432,7 +431,7 @@ class CommunicationModule{
 
         		foreach ($query_results as $query_result) {
         			$new_comm_data = array('component' => $component, 'communication_type' =>$communication_type , 'email_template_id'=>$query_result['id'] );
-        			
+        			if(isset($comm_data['user_id'])) $new_comm_data['user_id'] = $comm_data['user_id'];
         			$communication_ids[] = $this->create_communication($new_comm_data, $meta,  $recipients_args,$role_based_recipients);
 
         		}
