@@ -19,19 +19,17 @@ function ajcm_get_email_template_by_id($email_template_id, $template_args=""){
 	} 
 }
 
-function ajcm_get_email_templates(){
+function ajcm_get_templates($template_type='email'){
 
 	global $wpdb;
 
 	$table = $wpdb->prefix.'ajcm_templates';
 
-	$query = "SELECT * FROM $table";
+	$query = "SELECT * FROM $table WHERE template_type=%s";
 
-	// $status = 'active';
+	$query_string =  $wpdb->prepare( $query, $template_type);
 
-	// $query_string =  $wpdb->prepare( $query );
-
-	$query_results=$wpdb->get_results($query,ARRAY_A);
+	$query_results=$wpdb->get_results($query_string,ARRAY_A);
 
 	foreach ($query_results as $key => $query_result) {
 		$created_by_user= get_user_by( 'id', $query_result['created_by'] );
@@ -50,13 +48,13 @@ function ajcm_get_email_templates(){
 function ajcm_create_email_template($args){
 	global $wpdb;
 
-	if (!isset($args['component'])||!isset($args['communication_type'])||!isset($args['email_type'])||!isset($args['mandrill_template']) ||!isset($args['recipient_roles'])) {
-		return new WP_Error( 'json_missing_arguments', __( 'Specify all mandatory arguments' ));
-	}
+	// if (!isset($args['component'])||!isset($args['communication_type'])||!isset($args['email_type'])||!isset($args['vendor_template_id']) ||!isset($args['recipient_roles'])) {
+	// 	return new WP_Error( 'json_missing_arguments', __( 'Specify all mandatory arguments' ));
+	// }
 
-	if (sizeof($args['recipient_roles'])<1) {
-		return new WP_Error( 'json_missing_arguments', __( 'Specify email recepients' ));
-	}
+	// if (sizeof($args['recipient_roles'])<1) {
+	// 	return new WP_Error( 'json_missing_arguments', __( 'Specify email recepients' ));
+	// }
 
 	if (isset($args['status']) && $args['status'] === true ) {
 		$args['status'] = 'active';
@@ -70,9 +68,11 @@ function ajcm_create_email_template($args){
 	date_default_timezone_set('Asia/Kolkata');
 	
 	$defaults = array(
+		'template_type' => 'email',
 		'component'           => '',    
 		'communication_type'  => '',                  
 		'email_type'             => '', 
+		'vendor_template_src'  => 'mandrill',
 		'vendor_template_id'       => '',
 		'created_by'             => get_current_user_id(),
 		'modified_by'             => get_current_user_id(),
@@ -85,10 +85,12 @@ function ajcm_create_email_template($args){
 	extract( $params, EXTR_SKIP );
 
 	$insert_query = $wpdb->insert( $table, array(
+		'template_type' => $template_type,
 		'component' => $component,
 		'communication_type' => $communication_type,
 		'email_type'           => $email_type,
-		'vendor_template_id'           => $mandrill_template,
+		'vendor_template_src'  => $vendor_template_src,
+		'vendor_template_id'   => $vendor_template_id,
 		'created_by'          =>$created_by,
 		'modified_by'           =>$modified_by,
 		'created_at'           =>$created_at,
@@ -98,7 +100,7 @@ function ajcm_create_email_template($args){
 		));
 
 	if ( false === $insert_query )
-		return new WP_Error('emailtemplate_creation_failed', __('Failed to create email template') );
+		return new WP_Error('template_creation_failed', __('Failed to create template') );
 
 	$email_template_id = $wpdb->insert_id;
 
@@ -110,8 +112,8 @@ function ajcm_create_email_template($args){
 	}
 	$email_template_data['recipient_roles'] = maybe_unserialize( $email_template_data['recipient_roles'] );
 
-	$response['code'] = 'email_template_created';
-	$response['message'] = __('Email template created');
+	$response['code'] = 'template_created';
+	$response['message'] = __('Template created');
 	$response['data'] = $email_template_data;
 
 	return $response;
@@ -121,7 +123,7 @@ function ajcm_create_email_template($args){
 function ajcm_update_email_template($args){
 	global $wpdb;
 
-	if (!isset($args['component'])||!isset($args['communication_type'])||!isset($args['email_type'])||!isset($args['mandrill_template']) ||!isset($args['recipient_roles'])) {
+	if (!isset($args['component'])||!isset($args['communication_type'])||!isset($args['email_type'])||!isset($args['vendor_template_id']) ||!isset($args['recipient_roles'])) {
 		return new WP_Error( 'json_missing_arguments', __( 'Specify all mandatory arguments' ));
 	}
 
@@ -140,6 +142,7 @@ function ajcm_update_email_template($args){
 	$defaults = array(
 		'modified_by'             => get_current_user_id(),
 		'sender_customizable'    => 0,
+		'vendor_template_src'  => 'mandrill',
 		'status' 				=> 'active',
 		);
 	$params = wp_parse_args( $args, $defaults );
@@ -152,7 +155,8 @@ function ajcm_update_email_template($args){
 		'component' => $component,
 		'communication_type' => $communication_type,
 		'email_type'           => $email_type,
-		'vendor_template_id'           => $mandrill_template,
+		'vendor_template_src'  => $vendor_template_src,
+		'vendor_template_id'           => $vendor_template_id,
 		'created_by'          =>$created_by,
 		'modified_by'           =>$modified_by,
 		'recipient_roles'           =>maybe_serialize($recipient_roles),

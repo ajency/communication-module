@@ -177,7 +177,7 @@ if(is_plugin_active('json-rest-api/plugin.php')){
 
         public function get_email_templates(){
 
-            $response = ajcm_get_email_templates(); 
+            $response = ajcm_get_templates(); 
 
             if(is_wp_error($response)){
                 $response_data = array('code' => $response->get_error_code(),'message' => $response->get_error_message());
